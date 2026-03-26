@@ -12,29 +12,46 @@ export default function ConnectPage() {
   const [file, setFile] = useState<File | null>(null);
   const [analysis, setAnalysis] = useState<any>(null);
   const [mapping, setMapping] = useState<any>({});
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   async function analyzeFile() {
     if (!file) return;
-    const res = await uploadAnalyze(file);
-    setAnalysis(res);
-
-    setMapping({
-      period: res.column_suggestions.period?.[0] || "",
-      account: res.column_suggestions.account?.[0] || "",
-      actual: res.column_suggestions.actual?.[0] || "",
-      budget: res.column_suggestions.budget?.[0] || "",
-      entity: res.column_suggestions.entity?.[0] || "",
-      cost_center: res.column_suggestions.cost_center?.[0] || "",
-      project: res.column_suggestions.project?.[0] || "",
-      account_name: "",
-    });
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await uploadAnalyze(file);
+      setAnalysis(res);
+      setMapping({
+        period: res.column_suggestions.period?.[0] || "",
+        account: res.column_suggestions.account?.[0] || "",
+        actual: res.column_suggestions.actual?.[0] || "",
+        budget: res.column_suggestions.budget?.[0] || "",
+        entity: res.column_suggestions.entity?.[0] || "",
+        cost_center: res.column_suggestions.cost_center?.[0] || "",
+        project: res.column_suggestions.project?.[0] || "",
+        account_name: "",
+      });
+    } catch (e: any) {
+      setError(e.message || "Något gick fel vid filanalysen.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function runMappedAnalysis() {
     if (!file) return;
-    const pack = await uploadAnalyzeWithMapping(file, mapping);
-    savePack(pack);
-    router.push("/dashboard");
+    setError(null);
+    setLoading(true);
+    try {
+      const pack = await uploadAnalyzeWithMapping(file, mapping);
+      savePack(pack);
+      router.push("/dashboard");
+    } catch (e: any) {
+      setError(e.message || "Analys med mappning misslyckades.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -47,8 +64,20 @@ export default function ConnectPage() {
         <div className="ns-hero-text">Ladda upp Excel eller CSV, kontrollera kolumnmapping och kör analys.</div>
       </div>
 
-      <input type="file" accept=".csv,.xlsx,.xls" onChange={(e) => setFile(e.target.files?.[0] || null)} />
-      <button onClick={analyzeFile}>Läs fil</button>
+      {error && (
+        <div className="ns-error-banner" role="alert">
+          <strong>Något gick fel:</strong> {error}
+        </div>
+      )}
+
+      <input
+        type="file"
+        accept=".csv,.xlsx,.xls"
+        onChange={(e) => { setFile(e.target.files?.[0] || null); setError(null); }}
+      />
+      <button onClick={analyzeFile} disabled={loading || !file}>
+        {loading && !analysis ? "Analyserar..." : "Läs fil"}
+      </button>
 
       {analysis && (
         <div className="panel">
@@ -68,7 +97,9 @@ export default function ConnectPage() {
             </div>
           ))}
 
-          <button onClick={runMappedAnalysis}>Kör analys</button>
+          <button onClick={runMappedAnalysis} disabled={loading}>
+            {loading ? "Kör analys..." : "Kör analys"}
+          </button>
         </div>
       )}
     </ProtectedLayout>
