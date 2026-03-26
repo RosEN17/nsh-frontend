@@ -1,5 +1,20 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE?.trim() || "";
 
+// Extracts a readable message from any failed response.
+// Tries JSON `.detail` (FastAPI style), then `.message`, then falls back
+// to "HTTP <status>" so the caller always gets something actionable.
+async function extractError(res: Response): Promise<string> {
+  const status = res.status;
+  try {
+    const body = await res.json();
+    const detail = (body as any).detail || (body as any).message;
+    if (detail) return `${detail} (HTTP ${status})`;
+  } catch {
+    // body was not JSON — ignore
+  }
+  return `HTTP ${status}: ${res.statusText || "Server error"}`;
+}
+
 export async function apiPost<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     method: "POST",
@@ -8,8 +23,7 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
   });
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error((err as any).detail || "API error");
+    throw new Error(await extractError(res));
   }
 
   return res.json();
@@ -17,7 +31,7 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
 
 export async function getForecast() {
   const res = await fetch(`${API_BASE}/forecast`);
-  if (!res.ok) throw new Error("Kunde inte hämta forecast");
+  if (!res.ok) throw new Error(`Kunde inte hämta forecast — ${await extractError(res)}`);
   return res.json();
 }
 
@@ -30,7 +44,7 @@ export async function uploadAnalyze(file: File) {
     body: fd,
   });
 
-  if (!res.ok) throw new Error("Kunde inte analysera filen");
+  if (!res.ok) throw new Error(`Analys misslyckades — ${await extractError(res)}`);
   return res.json();
 }
 
@@ -47,7 +61,7 @@ export async function uploadAnalyzeWithMapping(
     body: fd,
   });
 
-  if (!res.ok) throw new Error("Kunde inte köra analys med mapping");
+  if (!res.ok) throw new Error(`Mappningsanalys misslyckades — ${await extractError(res)}`);
   return res.json();
 }
 
@@ -58,7 +72,7 @@ export async function downloadExport(body: unknown, filename: string) {
     body: JSON.stringify(body),
   });
 
-  if (!res.ok) throw new Error("Export misslyckades");
+  if (!res.ok) throw new Error(`Export misslyckades — ${await extractError(res)}`);
 
   const blob = await res.blob();
   const url = window.URL.createObjectURL(blob);
