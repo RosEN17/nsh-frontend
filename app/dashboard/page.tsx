@@ -1,60 +1,139 @@
 "use client";
 
-import { useEffect, useRef } from "react";
 import ProtectedLayout from "@/components/ProtectedLayout";
 import Header from "@/components/Header";
-import AIInsights from "@/components/AIInsights";
-import AIChat from "@/components/AIChat";
 import { getPack, getReportItems } from "@/lib/store";
 
-function DonutChart({
-  title,
-  sub,
-  value,
-  max,
-  color,
-  label,
-}: {
-  title: string;
-  sub: string;
-  value: number;
-  max: number;
-  color: string;
-  label: string;
-}) {
-  const pct = max > 0 ? Math.min(value / max, 1) : 0;
-  const r = 54;
-  const circ = 2 * Math.PI * r;
-  const dash = pct * circ;
-  const gap = circ - dash;
+// ── Formatters ────────────────────────────────────────────────────
+function fmtMoney(n: number): string {
+  const abs = Math.abs(n);
+  if (abs >= 1_000_000) return `${(n / 1_000_000).toFixed(1)} MSEK`;
+  if (abs >= 1_000)     return `${Math.round(n / 1_000).toLocaleString("sv-SE")} tkr`;
+  return `${Math.round(n)}`;
+}
 
+function fmtPct(n: number): string {
+  return `${n >= 0 ? "+" : ""}${Math.round(n * 100)}%`;
+}
+
+// ── KPI Card ──────────────────────────────────────────────────────
+function KPICard({
+  label, value, sub, trend, trendPos,
+}: {
+  label: string; value: string; sub: string;
+  trend?: string; trendPos?: boolean;
+}) {
   return (
-    <div className="donut-card">
-      <div className="donut-wrap">
-        <svg viewBox="0 0 140 140" width="140" height="140">
-          <circle cx="70" cy="70" r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="14" />
-          <circle
-            cx="70" cy="70" r={r}
-            fill="none"
-            stroke={color}
-            strokeWidth="14"
-            strokeDasharray={`${dash} ${gap}`}
-            strokeLinecap="round"
-            transform="rotate(-90 70 70)"
-            style={{ transition: "stroke-dasharray 0.6s ease" }}
-          />
-          <text x="70" y="66" textAnchor="middle" fontSize="18" fontWeight="600" fill="#f0f0f8">{label}</text>
-          <text x="70" y="82" textAnchor="middle" fontSize="11" fill="rgba(255,255,255,0.35)">{Math.round(pct * 100)}%</text>
-        </svg>
+    <div className="db-kpi">
+      <div className="db-kpi-top">
+        <div className="db-kpi-label">{label}</div>
+        {trend && (
+          <span className={`db-kpi-trend ${trendPos ? "trend-pos" : "trend-neg"}`}>
+            {trendPos ? "▲" : "▼"} {trend}
+          </span>
+        )}
       </div>
-      <div className="donut-title">{title}</div>
-      <div className="donut-sub">{sub}</div>
+      <div className={`db-kpi-val ${trendPos === false ? "neg" : ""}`}>{value}</div>
+      <div className="db-kpi-sub">{sub}</div>
     </div>
   );
 }
 
+// ── Bar Chart ─────────────────────────────────────────────────────
+function BarChart({
+  data,
+}: {
+  data: { label: string; actual: number; budget: number }[];
+}) {
+  const maxVal = Math.max(...data.flatMap((d) => [d.actual, d.budget]), 1);
+  return (
+    <div className="db-bar-chart">
+      <div className="db-bars">
+        {data.map((d, i) => (
+          <div key={i} className="db-bar-group">
+            <div className="db-bar-pair">
+              <div
+                className="db-bar db-bar-actual"
+                style={{ height: `${Math.round((d.actual / maxVal) * 82)}px` }}
+                title={`Utfall: ${fmtMoney(d.actual)}`}
+              />
+              <div
+                className="db-bar db-bar-budget"
+                style={{ height: `${Math.round((d.budget / maxVal) * 82)}px` }}
+                title={`Budget: ${fmtMoney(d.budget)}`}
+              />
+            </div>
+            <div className="db-bar-label">{d.label}</div>
+          </div>
+        ))}
+      </div>
+      <div className="db-bar-legend">
+        <div className="db-leg-item">
+          <div className="db-leg-dot" style={{ background: "#6c63ff" }} />
+          Utfall
+        </div>
+        <div className="db-leg-item">
+          <div className="db-leg-dot" style={{ background: "rgba(108,99,255,0.25)" }} />
+          Budget
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Donut Chart ───────────────────────────────────────────────────
+function DonutChart({
+  pct, centerText, centerSub, color, statA, statB,
+}: {
+  pct: number;
+  centerText: string;
+  centerSub: string;
+  color: string;
+  statA: { val: string; label: string; color?: string };
+  statB: { val: string; label: string; color?: string };
+}) {
+  const r    = 40;
+  const circ = 2 * Math.PI * r;
+  const dash = Math.min(Math.max(pct, 0), 1) * circ;
+
+  return (
+    <div className="db-donut-inner">
+      <svg width="96" height="96" viewBox="0 0 110 110">
+        <circle
+          cx="55" cy="55" r={r}
+          fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="10"
+        />
+        <circle
+          cx="55" cy="55" r={r}
+          fill="none" stroke={color} strokeWidth="10"
+          strokeDasharray={`${dash} ${circ}`}
+          strokeLinecap="round"
+          transform="rotate(-90 55 55)"
+        />
+        <text x="55" y="50" textAnchor="middle" fontSize="16" fontWeight="600" fill="#f0f0f8">
+          {centerText}
+        </text>
+        <text x="55" y="65" textAnchor="middle" fontSize="10" fill="#44445a">
+          {centerSub}
+        </text>
+      </svg>
+      <div className="db-donut-stats">
+        <div className="db-donut-stat">
+          <div className="db-donut-stat-val" style={{ color: statA.color }}>{statA.val}</div>
+          <div className="db-donut-stat-label">{statA.label}</div>
+        </div>
+        <div className="db-donut-stat">
+          <div className="db-donut-stat-val" style={{ color: statB.color }}>{statB.val}</div>
+          <div className="db-donut-stat-label">{statB.label}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main Page ─────────────────────────────────────────────────────
 export default function DashboardPage() {
-  const pack = getPack();
+  const pack        = getPack();
   const reportItems = getReportItems();
 
   if (!pack) {
@@ -62,103 +141,139 @@ export default function DashboardPage() {
       <ProtectedLayout>
         <Header reportCount={0} />
         <div className="ns-page">
-          <div className="ns-hero">
-            <div className="ns-hero-title">Dashboard</div>
-            <div className="ns-hero-sub">Ingen analys laddad — gå till Connect först.</div>
+          <div className="ns-hero-title">Dashboard</div>
+          <div className="ns-hero-sub" style={{ marginTop: 6 }}>
+            Ingen analys laddad — gå till Connect och ladda upp en fil först.
           </div>
         </div>
       </ProtectedLayout>
     );
   }
 
-  const totalActual  = pack.total_actual  || 0;
-  const totalBudget  = pack.total_budget  || 1;
-  const budgetUsedPct = totalBudget > 0 ? totalActual / totalBudget : 0;
+  // ── Beräkningar från pack ─────────────────────────────────────
+  const totalActual = Number(pack.total_actual ?? 0);
+  const totalBudget = Number(pack.total_budget ?? 0);
+  const variance    = totalActual - totalBudget;
+  const variancePct = totalBudget !== 0 ? variance / Math.abs(totalBudget) : 0;
 
-  const topBudget = pack.top_budget || [];
-  const topMom    = pack.top_mom    || [];
+  const kpiRow  = Array.isArray(pack.kpi_summary) ? (pack.kpi_summary[0] ?? {}) : {};
+  const momPct  = kpiRow["MoM %"] != null ? Number(kpiRow["MoM %"]) : null;
 
-  // Budget utilisation
-  const budgetLabel = `${Math.round(budgetUsedPct * 100)}%`;
+  const topBudget   = Array.isArray(pack.top_budget) ? pack.top_budget : [];
+  const topMom      = Array.isArray(pack.top_mom)    ? pack.top_mom    : [];
 
-  // Variance coverage: how many accounts have a budget vs total accounts
-  const totalAccounts   = topBudget.length || 1;
-  const withBudget      = topBudget.filter((x: any) => x.Budget != null && x.Budget !== 0).length;
-  const coveragePct     = withBudget / totalAccounts;
+  // Täckningsgrad
+  const withBudget  = topBudget.filter((x: any) => x.Budget && Number(x.Budget) !== 0).length;
+  const totalKonton = topBudget.length || 1;
+  const coveragePct = withBudget / totalKonton;
 
-  // MoM trend: share of accounts with positive MoM diff
-  const positiveAccounts = topMom.filter((x: any) => (x["MoM diff"] ?? 0) > 0).length;
-  const trendPct         = topMom.length > 0 ? positiveAccounts / topMom.length : 0;
+  // MoM-trend
+  const positiveMoM  = topMom.filter((x: any) => Number(x["MoM diff"] ?? 0) > 0).length;
+  const momTrendPct  = topMom.length > 0 ? positiveMoM / topMom.length : 0;
+  const negativeMoM  = topMom.length - positiveMoM;
 
-  const fmtMoney = (n: number) => {
-    if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(1)} MSEK`;
-    if (Math.abs(n) >= 1_000)     return `${Math.round(n / 1_000)} tkr`;
-    return `${Math.round(n)}`;
-  };
-
-  const insights = [
-    pack.narrative || "Ingen narrativ kommentar tillgänglig.",
-    ...(pack.warnings || []).slice(0, 2),
-  ];
+  // Stapeldiagram — topp 6 konton utfall vs budget
+  const barData = topBudget.slice(0, 6).map((x: any) => ({
+    label: String(x.Label || x.Konto || "—").slice(0, 8),
+    actual: Math.abs(Number(x.Utfall ?? 0)),
+    budget: Math.abs(Number(x.Budget ?? 0)),
+  }));
 
   return (
     <ProtectedLayout>
       <Header reportCount={reportItems.length} />
       <div className="ns-page">
-        <div className="ns-hero">
-          <div className="ns-hero-title">Dashboard</div>
-          <div className="ns-hero-sub">Översikt för period {pack.current_period}</div>
-        </div>
 
-        {/* KPI row */}
-        <div className="kpi-grid">
-          {[
-            { title: "Utfall",         value: fmtMoney(totalActual), chip: "Aktuell period" },
-            { title: "Budget",         value: fmtMoney(totalBudget), chip: "Aktuell period" },
-            { title: "Avvikelse",      value: fmtMoney(totalActual - totalBudget), chip: "vs budget" },
-            { title: "Föregående",     value: pack.previous_period || "—", chip: "Period" },
-          ].map((c, i) => (
-            <div key={i} className="kpi-card">
-              <div className="kpi-title">{c.title}</div>
-              <div className="kpi-value">{c.value}</div>
-              <div className="kpi-sub"><span className="kpi-chip">{c.chip}</span></div>
+        {/* ── Header ── */}
+        <div className="db-header">
+          <div>
+            <div className="ns-hero-title">Dashboard</div>
+            <div className="ns-hero-sub">
+              Finansiell översikt · {pack.current_period}
+              {pack.previous_period && ` · jämför ${pack.previous_period}`}
             </div>
-          ))}
+          </div>
+          <div className="db-sync-pill">
+            <span className="db-sync-dot" />
+            Senaste uppladdning
+          </div>
         </div>
 
-        {/* Donut charts */}
-        <div className="donut-grid">
-          <DonutChart
-            title="Budgetutnyttjande"
-            sub="Utfall som andel av budget"
-            value={totalActual}
-            max={totalBudget}
-            color="#6c63ff"
-            label={fmtMoney(totalActual)}
+        {/* ── KPI-rad ── */}
+        <div className="db-kpi-row">
+          <KPICard
+            label="Totalt utfall"
+            value={fmtMoney(totalActual)}
+            sub={`Budget: ${fmtMoney(totalBudget)}`}
+            trend={momPct !== null ? fmtPct(Math.abs(momPct)) + " MoM" : undefined}
+            trendPos={momPct !== null ? momPct >= 0 : undefined}
           />
-          <DonutChart
-            title="Budgettäckning"
-            sub="Andel konton med budget"
-            value={withBudget}
-            max={totalAccounts}
-            color="#22c55e"
-            label={`${withBudget}/${totalAccounts}`}
+          <KPICard
+            label="Budgetavvikelse"
+            value={fmtMoney(variance)}
+            sub={variance < 0 ? "Under plan" : "Över plan"}
+            trend={fmtPct(Math.abs(variancePct))}
+            trendPos={variance >= 0}
           />
-          <DonutChart
-            title="Positiv MoM-trend"
-            sub="Andel konton bättre än föregående"
-            value={positiveAccounts}
-            max={topMom.length || 1}
-            color="#f59e0b"
-            label={`${positiveAccounts}/${topMom.length || 0}`}
+          <KPICard
+            label="Täckningsgrad"
+            value={`${withBudget} / ${totalKonton}`}
+            sub="Konton med budget"
+            trend={`${Math.round(coveragePct * 100)}%`}
+            trendPos={coveragePct >= 0.8}
           />
         </div>
 
-        {/* AI row */}
-        <div className="two-col">
-          <AIInsights insights={insights} />
-          <AIChat pack={pack} />
+        {/* ── Diagram-rad ── */}
+        <div className="db-charts-row">
+          {/* Stapeldiagram */}
+          <div className="db-chart-card">
+            <div className="db-card-head">
+              <div>
+                <div className="db-card-title">Utfall vs budget</div>
+                <div className="db-card-sub">Topp konton denna period</div>
+              </div>
+            </div>
+            {barData.length > 0 ? (
+              <BarChart data={barData} />
+            ) : (
+              <div className="db-empty">Ingen data tillgänglig</div>
+            )}
+          </div>
+
+          {/* Donut — MoM-trend */}
+          <div className="db-donut-card">
+            <div className="db-card-title">MoM-trend</div>
+            <div className="db-card-sub">Konton bättre än föregående</div>
+            <DonutChart
+              pct={momTrendPct}
+              centerText={`${Math.round(momTrendPct * 100)}%`}
+              centerSub="positiv"
+              color="#22c55e"
+              statA={{ val: `${positiveMoM} st`, label: "Bättre", color: "#22c55e" }}
+              statB={{ val: `${negativeMoM} st`, label: "Sämre",  color: "#ef4444" }}
+            />
+          </div>
         </div>
+
+        {/* ── AI-sammanfattning (full bredd) ── */}
+        <div className="db-narrative">
+          <div className="db-narrative-icon">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path
+                d="M8 1C8 1,9.5 6.5,15 8C9.5 9.5,8 15,8 15C8 15,6.5 9.5,1 8C6.5 6.5,8 1,8 1Z"
+                fill="#9b94ff"
+              />
+            </svg>
+          </div>
+          <div>
+            <div className="db-narrative-title">AI-sammanfattning</div>
+            <div className="db-narrative-text">
+              {pack.narrative || "Ingen sammanfattning tillgänglig."}
+            </div>
+          </div>
+        </div>
+
       </div>
     </ProtectedLayout>
   );
