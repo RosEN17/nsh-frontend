@@ -106,7 +106,7 @@ function LineChart({ months, range }: {
       .map((v, i) => v !== undefined ? `${PL + i * cw},${scaleY(v)}` : null)
       .filter(Boolean);
     if (!pts.length) return "";
-    const lastIdx = vals.reduce((a, v, i) => v !== undefined ? i : a, 0);
+    const lastIdx: number = vals.reduce((a: number, v, i) => v !== undefined ? i : a, 0);
     return `M${pts.join("L")}L${PL + lastIdx * cw},${H - PB}L${PL},${H - PB}Z`;
   }
 
