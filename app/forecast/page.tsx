@@ -94,21 +94,28 @@ function LineChart({ months, range }: {
 
   function scaleY(v: number) { return PT + ch - ((v - minV) / (maxV - minV)) * ch; }
 
-  function buildPath(vals: (number | undefined)[]) {
-    const pts = vals
-      .map((v, i) => v !== undefined ? `${PL + i * cw},${scaleY(v)}` : null)
-      .filter(Boolean);
-    return pts.length ? `M${pts.join("L")}` : "";
-  }
+function buildPath(vals: (number | undefined)[]) {
+  const pts = vals
+    .map((v, i) => (v !== undefined ? `${PL + i * cw},${scaleY(v)}` : null))
+    .filter((p): p is string => p !== null);
 
-  function buildArea(vals: (number | undefined)[]) {
-    const pts = vals
-      .map((v, i) => v !== undefined ? `${PL + i * cw},${scaleY(v)}` : null)
-      .filter(Boolean);
-    if (!pts.length) return "";
-    const lastIdx = vals.reduce((a, v, i) => v !== undefined ? i : a, 0);
-    return `M${pts.join("L")}L${PL + lastIdx * cw},${H - PB}L${PL},${H - PB}Z`;
-  }
+  return pts.length ? `M${pts.join("L")}` : "";
+}
+
+function buildArea(vals: (number | undefined)[]) {
+  const pts = vals
+    .map((v, i) => (v !== undefined ? `${PL + i * cw},${scaleY(v)}` : null))
+    .filter((p): p is string => p !== null);
+
+  if (!pts.length) return "";
+
+  const lastIdx = vals.reduce<number>(
+    (a, v, i) => (v !== undefined ? i : a),
+    0
+  );
+
+  return `M${pts.join("L")}L${PL + lastIdx * cw},${H - PB}L${PL},${H - PB}Z`;
+}
 
   const forecastPath = buildPath(data.map((d) => d.forecast));
   const budgetPath   = buildPath(data.map((d) => d.budget));
