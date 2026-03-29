@@ -7,69 +7,38 @@ import Header from "@/components/Header";
 import { getPack, getReportItems } from "@/lib/store";
 
 // ── Report types ──────────────────────────────────────────────────
-const reportTypes = [
+const REPORT_TYPES = [
   {
-    id: "income_statement",
-    label: "Resultaträkning",
-    sub: "Income Statement",
-    icon: (
-      <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-        <rect x="4" y="20" width="4" height="8" rx="1" fill="currentColor" opacity=".5"/>
-        <rect x="10" y="14" width="4" height="14" rx="1" fill="currentColor" opacity=".7"/>
-        <rect x="16" y="8" width="4" height="20" rx="1" fill="currentColor"/>
-        <rect x="22" y="4" width="4" height="24" rx="1" fill="currentColor"/>
-      </svg>
-    ),
+    id: "monthly",
+    label: "Månadsrapport",
+    sub: "Utfall, budget & avvikelser per månad",
+    bullets: ["KPI-sammanfattning", "Budget vs utfall", "Avvikelseanalys", "MoM-trend", "Åtgärdspunkter"],
   },
   {
-    id: "balance_sheet",
-    label: "Balansräkning",
-    sub: "Balance Sheet",
-    icon: (
-      <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-        <path d="M16 4L4 10v2h24v-2L16 4z" fill="currentColor" opacity=".5"/>
-        <rect x="6" y="14" width="4" height="12" rx="1" fill="currentColor"/>
-        <rect x="14" y="14" width="4" height="12" rx="1" fill="currentColor"/>
-        <rect x="22" y="14" width="4" height="12" rx="1" fill="currentColor"/>
-        <rect x="4" y="26" width="24" height="2" rx="1" fill="currentColor" opacity=".7"/>
-      </svg>
-    ),
+    id: "quarterly",
+    label: "Kvartalsrapport",
+    sub: "Kvartalsjämförelse & prognos",
+    bullets: ["Q-för-Q analys", "Budget vs utfall", "Halvårsprognos", "Riskbedömning", "Strategiska åtgärder"],
   },
   {
-    id: "cash_flow",
-    label: "Kassaflöde",
-    sub: "Cash Flow",
-    icon: (
-      <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-        <rect x="3" y="3" width="26" height="20" rx="3" stroke="currentColor" strokeWidth="2" fill="none" opacity=".5"/>
-        <path d="M3 10h26" stroke="currentColor" strokeWidth="2" opacity=".5"/>
-        <circle cx="16" cy="19" r="4" fill="currentColor"/>
-        <path d="M14 19l1.5 1.5L18 17" stroke="#0d0d12" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-      </svg>
-    ),
+    id: "annual",
+    label: "Årsbokslut / Årsredovisning",
+    sub: "Fullständig årsanalys",
+    bullets: ["Helårsresultat", "Kassaflöde", "YoY-jämförelse", "Styrelsekommentar", "Rekommendationer"],
   },
   {
-    id: "budget_vs_actual",
-    label: "Budget vs Utfall",
-    sub: "Budget vs actual",
-    icon: (
-      <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-        <path d="M4 24L12 14l6 6 10-14" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-        <circle cx="28" cy="6" r="3" fill="currentColor"/>
-      </svg>
-    ),
+    id: "forecast",
+    label: "Prognos / Forecast",
+    sub: "Helår eller rullande 12M",
+    bullets: ["Run-rate & trend", "3 scenarier", "Månadsfördelning", "Känslighetsanalys", "Rekommendationer"],
   },
   {
-    id: "ai_summary",
-    label: "AI-genererad sammanfattning",
-    sub: "",
-    icon: (
-      <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-        <path d="M16 3C16 3,18.5 13.5,29 16C18.5 18.5,16 29,16 29C16 29,13.5 18.5,3 16C13.5 13.5,16 3,16 3Z" fill="currentColor"/>
-      </svg>
-    ),
+    id: "kpi_dashboard",
+    label: "KPI-/nyckeltalsrapport",
+    sub: "Dashboard med nyckeltal",
+    bullets: ["Top-5 KPI:er", "Trendindikator", "Budget-gap", "Avvikelseranking", "AI-kommentar"],
   },
-];
+] as const;
 
 const toneOptions  = ["Professionell", "Enkel", "Analytisk"];
 const langOptions  = ["Svenska", "English", "Norsk"];
