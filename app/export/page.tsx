@@ -141,7 +141,7 @@ export default function ExportPage() {
           {/* Report type cards */}
           <div className="export-section-label">Exportera rapport</div>
           <div className="export-type-grid">
-            {reportTypes.map((rt) => (
+           {REPORT_TYPES.map((rt) => (
               <button
                 key={rt.id}
                 className={`export-type-card${selectedType === rt.id ? " active" : ""}`}
