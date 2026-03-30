@@ -15,17 +15,34 @@ function fmtSEK(n: number) { return `${fmtM(n)} SEK`; }
 
 // ── Build forecast data ────────────────────────────────────────────
 function buildForecast(pack: any) {
-  const actual   = Number(pack.total_actual  ?? 0);
-  const budget   = Number(pack.total_budget  ?? 0);
-  const kpi      = pack.kpi_summary?.[0] ?? {};
-  const momPct   = Number(kpi["MoM %"] ?? 0);
+  const actual    = Number(pack.total_actual  ?? 0);
+  const budget    = Number(pack.total_budget  ?? 0);
+  const kpi       = pack.kpi_summary?.[0] ?? {};
+  const rawMomPct = Number(kpi["MoM %"] ?? 0);
   const curPeriod: string = pack.current_period ?? "2025-12";
   const [yr, mo] = curPeriod.split("-").map(Number);
 
   const MONTHS_SV = ["Jan","Feb","Mar","Apr","Maj","Jun","Jul","Aug","Sep","Okt","Nov","Dec"];
-  const growthRate   = 1 + Math.min(Math.max(momPct, -0.05), 0.12);
-  const growthOpt    = growthRate * 1.04;
-  const growthPess   = growthRate * 0.96;
+
+  // ── Robust monthly base ─────────────────────────────────────────
+  // Raw MoM can be extreme (e.g. +4000%) when one period has near-zero
+  // or negative values. Use median of period_series as base instead.
+  const periodSeries: any[] = pack.period_series ?? [];
+  const seriesActuals = periodSeries
+    .map((p: any) => Number(p.actual ?? 0))
+    .filter((v: number) => isFinite(v) && v > 0);
+
+  const sorted = [...seriesActuals].sort((a, b) => a - b);
+  const medianActual = sorted.length > 0
+    ? sorted[Math.floor(sorted.length / 2)]
+    : Math.abs(actual) > 0 ? Math.abs(actual) : 500_000;
+
+  // Cap MoM: if it is extreme (>50%) it is a data artifact — ignore it
+  const momPct = Math.abs(rawMomPct) > 0.5 ? 0 : Math.min(Math.max(rawMomPct, -0.10), 0.10);
+
+  const growthRate = 1 + momPct;
+  const growthOpt  = 1 + Math.min(momPct + 0.03, 0.12);
+  const growthPess = 1 + Math.max(momPct - 0.03, -0.08);
 
   const months: {
     label: string;
@@ -37,44 +54,72 @@ function buildForecast(pack: any) {
     isForecast: boolean;
   }[] = [];
 
+  // Build actual history from period_series; fall back to synthetic curve
+  const histMap: Record<string, number> = {};
+  periodSeries.forEach((p: any) => {
+    if (p.period) histMap[String(p.period).slice(0, 7)] = Number(p.actual ?? 0);
+  });
+  const budgetMap: Record<string, number> = {};
+  periodSeries.forEach((p: any) => {
+    if (p.period) budgetMap[String(p.period).slice(0, 7)] = Number(p.budget ?? 0);
+  });
+
   for (let i = -11; i <= 12; i++) {
     let m = mo + i; let y = yr;
     while (m > 12) { m -= 12; y++; }
     while (m < 1)  { m += 12; y--; }
-    const label = MONTHS_SV[m - 1] + (y !== yr ? ` '${String(y).slice(2)}` : "");
+    const label   = MONTHS_SV[m - 1] + (y !== yr ? ` '${String(y).slice(2)}` : "");
+    const key     = `${y}-${String(m).padStart(2,"0")}`;
     const bFactor = 0.85 + (i + 11) * 0.012;
-    const base      = Math.round(actual * Math.pow(growthRate, i));
-    const optimistic= Math.round(actual * Math.pow(growthOpt,  i));
-    const pessimistic=Math.round(actual * Math.pow(growthPess, i));
+
+    // For history: use real data if available
+    const histVal = histMap[key];
+    const budgVal = budgetMap[key] ?? Math.round(budget * bFactor);
+
+    const base       = Math.round(medianActual * Math.pow(growthRate, Math.max(i, 0)));
+    const optimistic = Math.round(medianActual * Math.pow(growthOpt,  Math.max(i, 0)));
+    const pessimistic= Math.round(medianActual * Math.pow(growthPess, Math.max(i, 0)));
+
     months.push({
       label,
-      budget:     Math.round(budget * bFactor),
+      budget:      budgVal,
       base,
       optimistic,
       pessimistic,
-      actual: i <= 0 ? Math.round(actual * (0.88 + (i + 11) * 0.011)) : undefined,
+      actual: i <= 0 ? (histVal !== undefined ? histVal : Math.round(medianActual * (0.9 + (i + 11) * 0.01))) : undefined,
       isForecast: i > 0,
     });
   }
 
+  // Rows: show utfall per account with sensible prognos (not x41 growth)
   const topBudget = pack.top_budget ?? [];
   const rows = topBudget.slice(0, 6).map((x: any) => {
-    const utfall  = Number(x.Utfall ?? 0);
-    const prognos = Math.round(utfall * growthRate);
+    const utfall   = Number(x.Utfall ?? 0);
+    const prognos  = Math.round(utfall * growthRate);
     const avvikPct = utfall !== 0 ? (prognos - utfall) / Math.abs(utfall) : 0;
     return { name: String(x.Label || x.Konto || "—"), utfall, prognos, avvikPct };
   });
 
-  const baseFinal       = actual * (1 + momPct);
-  const optimisticFinal = baseFinal * 1.07;
-  const pessimisticFinal= baseFinal * 0.93;
-  const kostnadPrognos  = actual * 0.65 * growthRate;
-  const lonsamhetPct    = ((optimisticFinal - kostnadPrognos) / optimisticFinal) * 100;
+  const baseFinal        = medianActual * growthRate;
+  const optimisticFinal  = medianActual * growthOpt;
+  const pessimisticFinal = medianActual * growthPess;
+
+  // Inkomst = revenue accounts (positive actuals), Kostnad = cost accounts
+  const accountRows: any[] = pack.account_rows ?? [];
+  const inkomst = accountRows.filter((r: any) => Number(r.actual ?? 0) > 0)
+    .reduce((s: number, r: any) => s + Number(r.actual ?? 0), 0);
+  const kostnad = accountRows.filter((r: any) => Number(r.actual ?? 0) < 0)
+    .reduce((s: number, r: any) => s + Math.abs(Number(r.actual ?? 0)), 0);
+  const inkomstPrognos = (inkomst > 0 ? inkomst : medianActual * 0.6) * growthRate;
+  const kostnadPrognos = (kostnad > 0 ? kostnad : medianActual * 0.4) * growthRate;
+  const lonsamhetPct   = inkomstPrognos > 0
+    ? ((inkomstPrognos - kostnadPrognos) / inkomstPrognos) * 100
+    : 0;
 
   return {
     months, rows,
     base: baseFinal, optimistic: optimisticFinal, pessimistic: pessimisticFinal,
-    inkomstPrognos: optimisticFinal, kostnadPrognos, lonsamhetPct, growthRate, momPct,
+    inkomstPrognos, kostnadPrognos, lonsamhetPct, growthRate, momPct,
   };
 }
 
