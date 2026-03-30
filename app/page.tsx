@@ -1,60 +1,28 @@
 "use client";
 
-import ProtectedLayout from "@/components/ProtectedLayout";
-import Header from "@/components/Header";
-import VarianceTable from "@/components/VarianceTable";
-import { getPack, getReportItems } from "@/lib/store";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
-export default function VariancesPage() {
-  const pack = getPack();
-  const reportItems = getReportItems();
+export default function RootPage() {
+  const router = useRouter();
 
-  if (!pack) {
-    return (
-      <ProtectedLayout>
-        <Header reportCount={0} />
-        <div className="ns-page">
-          <div className="ns-hero">
-            <div className="ns-hero-title">Hantera avvikelser</div>
-            <div className="ns-hero-sub">Ingen analys laddad — gå till Connect först.</div>
-          </div>
-        </div>
-      </ProtectedLayout>
-    );
-  }
-
-  // Map pack data to VarianceRow format
-  const rows = [
-    ...(pack.top_budget || []).map((x: any) => ({
-      status: "Att hantera" as const,
-      category: x.Label || x.Konto || "—",
-      description: x.Label || x.Konto || "—",
-      company: "—",
-      impact: x["Vs budget diff"] ?? x.variance ?? null,
-      owner: "—",
-      activity: undefined,
-    })),
-    ...(pack.top_mom || []).map((x: any) => ({
-      status: "Utredd" as const,
-      category: x.Label || x.Konto || "—",
-      description: x.Label || x.Konto || "—",
-      company: "—",
-      impact: x["MoM diff"] ?? null,
-      owner: "—",
-      activity: undefined,
-    })),
-  ];
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (!data.session) {
+        router.replace("/login");
+      } else {
+        router.replace("/connect");
+      }
+    });
+  }, [router]);
 
   return (
-    <ProtectedLayout>
-      <Header reportCount={reportItems.length} />
-      <div className="ns-page">
-        <div className="ns-hero">
-          <div className="ns-hero-title">Hantera avvikelser</div>
-          <div className="ns-hero-sub">{rows.length} avvikelser att hantera</div>
-        </div>
-        <VarianceTable rows={rows} />
-      </div>
-    </ProtectedLayout>
+    <div style={{
+      minHeight: "100vh", display: "flex", alignItems: "center",
+      justifyContent: "center", background: "#0d0d12",
+    }}>
+      <div style={{ color: "#44445a", fontSize: 13 }}>Laddar...</div>
+    </div>
   );
 }
