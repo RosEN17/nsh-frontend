@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import Sidebar from "./Sidebar";
 
 export default function ProtectedLayout({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
+  const router   = useRouter();
+  const pathname = usePathname();
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
@@ -18,6 +19,16 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
       }
     });
   }, [router]);
+
+  // Redirect to /connect right after sign-in
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_IN" && pathname === "/login") {
+        router.replace("/connect");
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [router, pathname]);
 
   if (!checked) {
     return (
