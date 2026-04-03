@@ -109,7 +109,6 @@ export default function Sidebar() {
       .eq("to_id", me.id)
       .eq("read", false)
       .then(({ count }) => setInboxCount(count || 0))
-      .catch(() => {}); // tyst om tabellen saknas
   }, [me?.id]);
 
   async function signOut() {
