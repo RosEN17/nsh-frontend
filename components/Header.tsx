@@ -6,7 +6,6 @@ import { supabase } from "@/lib/supabase";
 import { useTeam } from "@/lib/useTeam";
 
 const navItems = [
-  { label: "Connect",   href: "/connect" },
   { label: "Dashboard", href: "/dashboard" },
   { label: "Variances", href: "/variances" },
   { label: "Forecast",  href: "/forecast" },
@@ -18,10 +17,10 @@ function initials(name: string) {
 }
 
 export default function Header({ reportCount }: { reportCount: number }) {
-  const pathname            = usePathname();
+  const pathname = usePathname();
   const { me, members, company } = useTeam();
   const [teamOpen, setTeamOpen] = useState(false);
-  const dropRef             = useRef<HTMLDivElement>(null);
+  const dropRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
@@ -44,10 +43,8 @@ export default function Header({ reportCount }: { reportCount: number }) {
         {navItems.map((item, i) => (
           <span key={i} style={{ display: "contents" }}>
             {i > 0 && <span className="ns-topnav-sep">—</span>}
-            <a
-              href={item.href}
-              className={`ns-topnav-item${pathname === item.href ? " active" : ""}`}
-            >
+            <a href={item.href}
+              className={`ns-topnav-item${pathname === item.href ? " active" : ""}`}>
               {item.label}
             </a>
           </span>
@@ -55,7 +52,6 @@ export default function Header({ reportCount }: { reportCount: number }) {
       </nav>
 
       <div className="header-right">
-        {/* Team dropdown */}
         <div className="hdr-team-wrap" ref={dropRef}>
           <button className="hdr-team-btn" onClick={() => setTeamOpen(!teamOpen)}>
             <span className="hdr-team-company">{company?.name || "Mitt bolag"}</span>
@@ -93,7 +89,6 @@ export default function Header({ reportCount }: { reportCount: number }) {
           )}
         </div>
 
-        {/* Me avatar */}
         <div className="hdr-me-avatar" title={me?.full_name || ""}>
           {initials(me?.full_name || "?")}
         </div>
