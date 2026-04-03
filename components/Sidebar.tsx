@@ -7,6 +7,8 @@ import { supabase } from "@/lib/supabase";
 import { useTeam } from "@/lib/useTeam";
 import { getPack } from "@/lib/store";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE?.trim() || "";
+
 function NordsheetLogo() {
   return (
     <div className="sb-logo-wrap">
@@ -23,64 +25,92 @@ function NordsheetLogo() {
 
 function SbIcon({ name }: { name: string }) {
   const icons: Record<string, JSX.Element> = {
-    alerts: <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 1C8 1,9.5 6.5,15 8C9.5 9.5,8 15,8 15C8 15,6.5 9.5,1 8C6.5 6.5,8 1,8 1Z" fill="currentColor"/></svg>,
-    inbox:  <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 4a1 1 0 011-1h10a1 1 0 011 1v7a1 1 0 01-1 1H3a1 1 0 01-1-1V4z" stroke="currentColor" strokeWidth="1.2" fill="none"/><path d="M2 7h3l1.5 2h3L11 7h3" stroke="currentColor" strokeWidth="1.2" fill="none"/></svg>,
+    alerts:  <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 1C8 1,9.5 6.5,15 8C9.5 9.5,8 15,8 15C8 15,6.5 9.5,1 8C6.5 6.5,8 1,8 1Z" fill="currentColor"/></svg>,
+    inbox:   <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 4a1 1 0 011-1h10a1 1 0 011 1v7a1 1 0 01-1 1H3a1 1 0 01-1-1V4z" stroke="currentColor" strokeWidth="1.2" fill="none"/><path d="M2 7h3l1.5 2h3L11 7h3" stroke="currentColor" strokeWidth="1.2" fill="none"/></svg>,
     calendar:<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="1" y="3" width="14" height="12" rx="2" stroke="currentColor" strokeWidth="1.2" fill="none"/><path d="M1 7h14M5 1v4M11 1v4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>,
-    reports:<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 2h7l3 3v9a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z" stroke="currentColor" strokeWidth="1.2" fill="none"/><path d="M10 2v3h3M5 8h6M5 11h4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>,
-    profile:<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5" r="3" stroke="currentColor" strokeWidth="1.2" fill="none"/><path d="M2 14c0-3.314 2.686-5 6-5s6 1.686 6 5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" fill="none"/></svg>,
-    team:   <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="6" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.2" fill="none"/><circle cx="11" cy="5" r="2" stroke="currentColor" strokeWidth="1.2" fill="none"/><path d="M1 13c0-2.5 2-4 5-4s5 1.5 5 4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" fill="none"/><path d="M11 9c2 0 4 1 4 3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" fill="none"/></svg>,
+    reports: <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 2h7l3 3v9a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z" stroke="currentColor" strokeWidth="1.2" fill="none"/><path d="M10 2v3h3M5 8h6M5 11h4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>,
+    profile: <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5" r="3" stroke="currentColor" strokeWidth="1.2" fill="none"/><path d="M2 14c0-3.314 2.686-5 6-5s6 1.686 6 5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" fill="none"/></svg>,
+    team:    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="6" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.2" fill="none"/><circle cx="11" cy="5" r="2" stroke="currentColor" strokeWidth="1.2" fill="none"/><path d="M1 13c0-2.5 2-4 5-4s5 1.5 5 4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" fill="none"/><path d="M11 9c2 0 4 1 4 3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" fill="none"/></svg>,
     settings:<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2.5" stroke="currentColor" strokeWidth="1.2" fill="none"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>,
-    help:   <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.2" fill="none"/><path d="M6 6c0-1.1.9-2 2-2s2 .9 2 2c0 1.5-2 2-2 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" fill="none"/><circle cx="8" cy="12" r=".7" fill="currentColor"/></svg>,
-    logout: <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h3M10 11l3-3-3-3M13 8H6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>,
+    help:    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.2" fill="none"/><path d="M6 6c0-1.1.9-2 2-2s2 .9 2 2c0 1.5-2 2-2 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" fill="none"/><circle cx="8" cy="12" r=".7" fill="currentColor"/></svg>,
+    logout:  <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h3M10 11l3-3-3-3M13 8H6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>,
   };
   return icons[name] || null;
 }
 
+// ── Fortnox status block ──────────────────────────────────────────
+function FortnoxBlock({ companyId }: { companyId: string | null }) {
+  const [connected, setConnected] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!companyId || !API_BASE) { setConnected(false); return; }
+    fetch(`${API_BASE}/api/fortnox/status?company_id=${companyId}`)
+      .then(r => r.json())
+      .then(d => setConnected(d.connected === true))
+      .catch(() => setConnected(false));
+  }, [companyId]);
+
+  async function connect() {
+    if (!companyId || !API_BASE) return;
+    try {
+      const res  = await fetch(`${API_BASE}/api/fortnox/auth-url?company_id=${companyId}`);
+      const data = await res.json();
+      if (data.url) window.location.href = data.url;
+    } catch {
+      window.location.href = "/connect";
+    }
+  }
+
+  return (
+    <div className="sb-fortnox-block">
+      <div className="sb-fortnox-row">
+        <div className="sb-fortnox-logo">F</div>
+        <div className="sb-fortnox-label">Fortnox</div>
+        {connected === null && (
+          <span className="sb-fortnox-checking">...</span>
+        )}
+        {connected === true && (
+          <div className="sb-fortnox-status">
+            <span className="sb-fortnox-dot" />
+            <span className="sb-fortnox-ok">Kopplad</span>
+          </div>
+        )}
+        {connected === false && (
+          <button className="sb-fortnox-btn" onClick={connect}>
+            Koppla
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Main sidebar ──────────────────────────────────────────────────
 export default function Sidebar() {
   const pathname = usePathname();
   const router   = useRouter();
   const { me, company } = useTeam();
   const pack     = getPack();
 
-  const [alertCount,  setAlertCount]  = useState(0);
-  const [inboxCount,  setInboxCount]  = useState(0);
-  const [calItems,    setCalItems]    = useState<any[]>([]);
-  const [reportCount, setReportCount] = useState(0);
-
-  const today = new Date().toISOString().split("T")[0];
+  const [alertCount, setAlertCount] = useState(0);
+  const [inboxCount, setInboxCount] = useState(0);
 
   useEffect(() => {
-    // Alert count from pack
     if (pack) {
       setAlertCount((pack.top_budget?.length || 0) + (pack.top_mom?.length || 0));
     }
   }, []);
 
   useEffect(() => {
-    if (!me?.id || !company?.id) return;
-
-    // Unread inbox
+    if (!me?.id) return;
+    // Inbox — bara om tabellen finns
     supabase.from("inbox_messages")
       .select("id", { count: "exact" })
       .eq("to_id", me.id)
       .eq("read", false)
-      .then(({ count }) => setInboxCount(count || 0));
-
-    // Upcoming calendar items (next 7 days)
-    supabase.from("calendar_items")
-      .select("*")
-      .eq("company_id", company.id)
-      .gte("follow_up_date", today)
-      .order("follow_up_date", { ascending: true })
-      .limit(4)
-      .then(({ data }) => setCalItems(data || []));
-
-    // Saved reports count
-    supabase.from("saved_reports")
-      .select("id", { count: "exact" })
-      .eq("company_id", company.id)
-      .then(({ count }) => setReportCount(count || 0));
-  }, [me?.id, company?.id]);
+      .then(({ count }) => setInboxCount(count || 0))
+      .catch(() => {}); // tyst om tabellen saknas
+  }, [me?.id]);
 
   async function signOut() {
     await supabase.auth.signOut();
@@ -102,23 +132,19 @@ export default function Sidebar() {
     );
   }
 
-  // Days until date
-  function daysUntil(date: string) {
-    const diff = Math.ceil((new Date(date).getTime() - new Date(today).getTime()) / 86400000);
-    if (diff === 0) return "Idag";
-    if (diff === 1) return "Imorgon";
-    return `${diff}d`;
-  }
-
   return (
     <aside className="sidebar">
+
       {/* Logo */}
       <div className="sb-brand">
         <NordsheetLogo />
         <div className="sb-tagline">Finance platform</div>
       </div>
 
-      {/* Period indicator */}
+      {/* Fortnox status */}
+      <FortnoxBlock companyId={company?.id ?? null} />
+
+      {/* Period */}
       {pack?.current_period && (
         <div className="sb-period-wrap">
           <div className="sb-period-dot" />
@@ -131,43 +157,27 @@ export default function Sidebar() {
 
       <div className="sb-divider" />
 
-      {/* Alerts & Inbox */}
+      {/* Notiser */}
       <div className="sb-section-label">Notiser</div>
       <nav className="sb-nav">
-        <SbLink href="/alerts"  icon="alerts"  label="AI Alerts"  badge={alertCount} />
-        <SbLink href="/inbox"   icon="inbox"   label="Inkorg"     badge={inboxCount} />
+        <SbLink href="/alerts" icon="alerts" label="AI Alerts"  badge={alertCount} />
+        <SbLink href="/inbox"  icon="inbox"  label="Inkorg"     badge={inboxCount} />
       </nav>
 
       <div className="sb-divider" />
 
-      {/* Calendar preview */}
+      {/* Uppföljningar */}
       <div className="sb-section-label">Uppföljningar</div>
-      <Link href="/calendar" className={`sb-nav-item${pathname === "/calendar" ? " active" : ""}`}>
-        <span className="sb-nav-icon"><SbIcon name="calendar" /></span>
-        <span className="sb-nav-label">Kalender</span>
-        {calItems.length > 0 && <span className="sb-nav-badge">{calItems.length}</span>}
-      </Link>
-
-      {calItems.length > 0 && (
-        <div className="sb-cal-preview">
-          {calItems.slice(0, 3).map((item) => (
-            <div key={item.id} className="sb-cal-item">
-              <div className="sb-cal-dot" />
-              <div className="sb-cal-body">
-                <div className="sb-cal-label">{item.variance_label}</div>
-                <div className="sb-cal-date">{daysUntil(item.follow_up_date)}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      <nav className="sb-nav">
+        <SbLink href="/calendar" icon="calendar" label="Kalender" />
+      </nav>
 
       <div className="sb-divider" />
 
-      {/* Saved reports */}
+      {/* Rapporter */}
       <div className="sb-section-label">Rapporter</div>
       <nav className="sb-nav">
-        <SbLink href="/reports" icon="reports" label="Sparade rapporter" badge={reportCount || undefined} />
+        <SbLink href="/reports" icon="reports" label="Sparade rapporter" />
       </nav>
 
       {/* Bottom */}
