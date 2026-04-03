@@ -34,6 +34,8 @@ function SbIcon({ name }: { name: string }) {
     settings:<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2.5" stroke="currentColor" strokeWidth="1.2" fill="none"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>,
     help:    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.2" fill="none"/><path d="M6 6c0-1.1.9-2 2-2s2 .9 2 2c0 1.5-2 2-2 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" fill="none"/><circle cx="8" cy="12" r=".7" fill="currentColor"/></svg>,
     logout:  <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h3M10 11l3-3-3-3M13 8H6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>,
+    filer:   <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 2h6l4 4v8a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z" stroke="currentColor" strokeWidth="1.2" fill="none"/><path d="M9 2v4h4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>,
+    fakturor:<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="2" y="1" width="12" height="14" rx="1.5" stroke="currentColor" strokeWidth="1.2" fill="none"/><path d="M5 5h6M5 8h6M5 11h4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>,
   };
   return icons[name] || null;
 }
@@ -109,6 +111,7 @@ export default function Sidebar() {
       .eq("to_id", me.id)
       .eq("read", false)
       .then(({ count }) => setInboxCount(count || 0))
+      .catch(() => {}); // tyst om tabellen saknas
   }, [me?.id]);
 
   async function signOut() {
@@ -169,6 +172,15 @@ export default function Sidebar() {
       <div className="sb-section-label">Uppföljningar</div>
       <nav className="sb-nav">
         <SbLink href="/calendar" icon="calendar" label="Kalender" />
+      </nav>
+
+      <div className="sb-divider" />
+
+      {/* Filer & Fakturor */}
+      <div className="sb-section-label">Importera</div>
+      <nav className="sb-nav">
+        <SbLink href="/filer"    icon="filer"    label="Filer" />
+        <SbLink href="/fakturor" icon="fakturor" label="Fakturor" />
       </nav>
 
       <div className="sb-divider" />
