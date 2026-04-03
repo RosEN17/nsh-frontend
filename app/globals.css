@@ -928,3 +928,14 @@ td{padding:11px 16px;vertical-align:middle}
 .db2-ai-warning{display:flex;align-items:flex-start;gap:7px;font-size:11px;color:var(--text-faint);line-height:1.5}
 .db2-warn-dot{width:5px;height:5px;border-radius:50%;background:var(--amber);flex-shrink:0;margin-top:3px}
  
+/* ── Fortnox sidebar block ── */
+.sb-fortnox-block{padding:10px 14px;border-bottom:0.5px solid var(--border)}
+.sb-fortnox-row{display:flex;align-items:center;gap:8px}
+.sb-fortnox-logo{width:20px;height:20px;border-radius:5px;background:#00a36c;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sb-fortnox-label{font-size:12px;font-weight:500;color:var(--text-secondary);flex:1}
+.sb-fortnox-checking{font-size:11px;color:var(--text-faint)}
+.sb-fortnox-status{display:flex;align-items:center;gap:5px}
+.sb-fortnox-dot{width:6px;height:6px;border-radius:50%;background:#22c55e;flex-shrink:0}
+.sb-fortnox-ok{font-size:11px;color:#22c55e;font-weight:500}
+.sb-fortnox-btn{height:22px;padding:0 10px;border-radius:4px;border:0.5px solid var(--accent-border);background:var(--accent-soft);color:var(--accent-text);font-size:11px;font-weight:500;cursor:pointer;font-family:var(--font);transition:all .15s;white-space:nowrap}
+.sb-fortnox-btn:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
