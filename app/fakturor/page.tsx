@@ -236,7 +236,7 @@ export default function FakturorPage() {
           filename:d.filename, analysis:d.analysis,
           status:d.status, source:"inbound" as const, created_at:d.created_at,
         })));
-      }).catch(()=>{});
+      });
   },[company?.id]);
 
   async function analyzeFile(file:File):Promise<Analysis|null> {
