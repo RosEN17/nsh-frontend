@@ -41,7 +41,7 @@ export default function InboxPage() {
           supabase.from("inbox_messages")
             .update({read:true}).eq("to_id",me.id).eq("read",false);
         }
-      }).catch(()=>setLoading(false));
+      });
   },[me?.id,tab]);
 
   function getPerson(msg:Msg) {
