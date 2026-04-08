@@ -1087,3 +1087,51 @@ td{padding:11px 16px;vertical-align:middle}
 .inbox-invoice-link{display:inline-block;margin-top:6px;font-size:11px;color:var(--accent-text);text-decoration:none;font-weight:500}
 .inbox-invoice-link:hover{text-decoration:underline}
 
+/* ── Dashboard v3 ── */
+
+/* Trend section */
+.db3-trend-section{display:grid;grid-template-columns:1fr;gap:12px}
+.db3-trend-card{background:var(--bg-elevated);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px}
+.db3-legend{display:flex;align-items:center;gap:6px}
+.db3-clear-btn{height:26px;padding:0 10px;border-radius:5px;border:0.5px solid var(--border-strong);background:transparent;color:var(--text-faint);font-size:11px;cursor:pointer;font-family:var(--font);transition:all .15s;white-space:nowrap}
+.db3-clear-btn:hover{background:var(--bg-hover);color:var(--text-primary)}
+
+/* Category section */
+.db3-section-label{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);margin-bottom:8px}
+.db3-cat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px}
+.db3-cat-btn{display:flex;align-items:center;gap:8px;padding:12px 14px;background:var(--bg-elevated);border:0.5px solid var(--border);border-radius:var(--radius-lg);cursor:pointer;font-family:var(--font);text-align:left;transition:all .15s;width:100%}
+.db3-cat-btn:hover{border-color:var(--border-strong);background:var(--bg-hover)}
+.db3-cat-btn.active{background:var(--accent-soft)}
+.db3-cat-label{font-size:11px;color:var(--text-muted);display:block;margin-bottom:2px}
+.db3-cat-actual{font-size:13px;font-weight:600;color:var(--text-primary)}
+.db3-cat-diff{font-size:11px;font-weight:600;white-space:nowrap}
+.db3-cat-diff.pos{color:var(--green)}
+.db3-cat-diff.neg{color:var(--red)}
+
+/* Account section */
+.db3-acc-section{background:var(--bg-elevated);border:0.5px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.db3-acc-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-bottom:0.5px solid var(--border-mid);flex-wrap:wrap}
+.db3-search{height:30px;padding:0 10px;border-radius:5px;border:0.5px solid var(--border-strong);background:var(--bg-surface);color:var(--text-primary);font-size:12px;font-family:var(--font);outline:none;width:180px;transition:border-color .15s}
+.db3-search:focus{border-color:var(--accent)}
+.db3-search::placeholder{color:var(--text-faint)}
+.db3-sort-select{height:30px;padding:0 8px;border-radius:5px;border:0.5px solid var(--border-strong);background:var(--bg-surface);color:var(--text-muted);font-size:11px;font-family:var(--font);outline:none;cursor:pointer}
+.db3-acc-list{display:flex;flex-direction:column}
+.db3-acc-header{display:grid;grid-template-columns:1fr 100px 180px 80px;align-items:center;gap:10px;padding:8px 18px;font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);border-bottom:0.5px solid var(--border-mid)}
+
+/* Account row */
+.db3-acc-row{display:grid;grid-template-columns:1fr 160px 120px;align-items:center;gap:12px;padding:10px 18px;border-bottom:0.5px solid rgba(255,255,255,0.03);transition:background .1s}
+.db3-acc-row:last-child{border-bottom:none}
+.db3-acc-row:hover{background:var(--bg-hover)}
+.db3-acc-left{min-width:0;display:flex;align-items:center;gap:8px}
+.db3-acc-konto{font-size:10px;font-weight:700;font-family:monospace;flex-shrink:0;padding:1px 5px;border-radius:3px;background:rgba(255,255,255,0.05)}
+.db3-acc-label{font-size:12px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.db3-acc-bar-wrap{}
+.db3-acc-bar-track{height:3px;background:rgba(255,255,255,0.05);border-radius:2px;overflow:hidden}
+.db3-acc-bar-fill{height:3px;border-radius:2px;transition:width .4s ease}
+.db3-acc-nums{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.db3-acc-actual{font-size:12px;font-weight:500;color:var(--text-secondary)}
+.db3-acc-diff{font-size:11px;font-weight:600}
+.db3-acc-diff.pos{color:var(--green)}
+.db3-acc-diff.neg{color:var(--red)}
+.db3-show-more{width:100%;padding:10px;border:none;background:transparent;color:var(--text-faint);font-size:12px;cursor:pointer;font-family:var(--font);border-top:0.5px solid var(--border-mid);transition:all .15s}
+.db3-show-more:hover{background:var(--bg-hover);color:var(--text-primary)}
