@@ -412,79 +412,55 @@ export default function VariancesPage() {
   const reportItems = getReportItems();
   const { me, members, company } = useTeam();
 
-  const [filter,     setFilter]     = useState("Alla");
-  const [search,     setSearch]     = useState("");
-  const [selected,   setSelected]   = useState<Set<number>>(new Set());
-  const [expanded,   setExpanded]   = useState<number | null>(null);
-  const [assignOpen, setAssignOpen] = useState(false);
+  const [filter,        setFilter]        = useState("Alla");
+  const [search,        setSearch]        = useState("");
+  const [selected,      setSelected]      = useState<Set<number>>(new Set());
+  const [expanded,      setExpanded]      = useState<number | null>(null);
+  const [assignOpen,    setAssignOpen]    = useState(false);
+  const [comparePeriod, setComparePeriod] = useState<string>(pack?.previous_period || "");
+  const allPeriods = Array.isArray(pack?.periods) ? pack.periods : [];
+  const isFortnox  = pack?.source === "fortnox";
 
   const [rows, setRows] = useState<Row[]>(() => {
     if (!pack) return [];
-
     const periodSeries = pack.period_series || [];
-
-    // Get previous period values per account for trend
-    const prevPeriod = pack.previous_period;
-    const prevByAccount: Record<string, number> = {};
-    if (prevPeriod) {
-      (pack.account_rows || []).forEach((r: any) => {
-        if (String(r.period || "") === prevPeriod) {
-          prevByAccount[String(r.account || r.Konto || "")] = Number(r.actual || 0);
-        }
-      });
-    }
-
-    const budget: Row[] = (pack.top_budget || []).map((x: any, i: number) => {
-      const konto = clean(x.Konto);
-      const prev  = prevByAccount[konto] ?? null;
-      const curr  = cleanNum(x.Utfall);
-      const prevImpact = prev !== null && curr !== null ? curr - prev : null;
-      return {
-        id:          `b-${i}`,
-        konto,
-        description: clean(x.Label || x.Konto),
-        actual:      curr,
-        budget:      cleanNum(x.Budget),
-        impact:      cleanNum(x["Vs budget diff"] ?? x.variance),
-        impactPct:   cleanNum(x["Vs budget %"]),
-        prevImpact,
-        type:        deriveType(konto, periodSeries),
-        status:      "Att hantera",
-        owner_id:    null,
-        ai_summary:  null,
-        note:        "",
-      };
-    });
-
-    const mom: Row[] = (pack.top_mom || []).map((x: any, i: number) => {
-      const konto = clean(x.Konto);
-      const prev  = prevByAccount[konto] ?? null;
-      const curr  = cleanNum(x.Utfall);
-      const prevImpact = prev !== null && curr !== null ? curr - prev : null;
-      return {
-        id:          `m-${i}`,
-        konto,
-        description: clean(x.Label || x.Konto),
-        actual:      curr,
-        budget:      cleanNum(x.Budget),
-        impact:      cleanNum(x["MoM diff"] ?? x["Vs budget diff"]),
-        impactPct:   cleanNum(x["MoM %"] ?? x["Vs budget %"]),
-        prevImpact,
-        type:        deriveType(konto, periodSeries),
-        status:      "Utredd",
-        owner_id:    null,
-        ai_summary:  null,
-        note:        "",
-      };
-    });
-
-    // Deduplicate by konto
+    const sourceData = (pack.all_flagged?.length > 0)
+      ? pack.all_flagged
+      : [...(pack.top_budget || []), ...(pack.top_mom || [])];
     const seen = new Set<string>();
-    return [...budget, ...mom].filter((r) => {
-      if (seen.has(r.konto)) return false;
-      seen.add(r.konto);
-      return true;
-    });
+    return sourceData
+      .filter((x: any) => {
+        const k = clean(x.Konto);
+        if (seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      })
+      .map((x: any, i: number) => {
+        const konto     = clean(x.Konto);
+        const impact    = cleanNum(x["MoM diff"] ?? x["Vs budget diff"] ?? x.variance);
+        const impactPct = cleanNum(x["MoM %"] ?? x["Vs budget %"]);
+        const hasBudget = cleanNum(x.Budget) !== null && cleanNum(x.Budget) !== 0;
+        let varType: VarianceType = "Okänd";
+        if (x.variance_type === "Strukturell" || (x.consecutive_periods || 0) >= 3) varType = "Återkommande";
+        else if (x.variance_type === "Återkommande" || (x.consecutive_periods || 0) >= 2) varType = "Återkommande";
+        else if (x.variance_type === "Engång") varType = "Engång";
+        else if (hasBudget) varType = deriveType(konto, periodSeries);
+        return {
+          id:          `r-${i}`,
+          konto,
+          description: clean(x.Label || x.Konto),
+          actual:      cleanNum(x.Utfall),
+          budget:      cleanNum(x.Budget) || null,
+          impact,
+          impactPct,
+          prevImpact:  null,
+          type:        varType,
+          status:      "Att hantera" as RowStatus,
+          owner_id:    null,
+          ai_summary:  null,
+          note:        x.flag_reason || "",
+        };
+      });
   });
 
   if (!pack) {
@@ -565,8 +541,30 @@ export default function VariancesPage() {
 
         <div className="ns-hero-title">Hantera avvikelser</div>
         <div className="ns-hero-sub" style={{ marginTop: 3 }}>
-          {rows.length} avvikelser · Period {pack.current_period}
+          {rows.length} flaggade avvikelser · Period {pack.current_period}
+          {pack.previous_period && ` · jämför ${comparePeriod || pack.previous_period}`}
+          {isFortnox && (
+            <span style={{marginLeft:8,fontSize:11,background:"rgba(0,163,108,0.15)",
+              color:"#00a36c",padding:"1px 7px",borderRadius:4,fontWeight:500}}>
+              Fortnox
+            </span>
+          )}
         </div>
+        {allPeriods.length > 1 && (
+          <div style={{display:"flex",alignItems:"center",gap:8,marginTop:6}}>
+            <span style={{fontSize:11,color:"var(--text-faint)"}}>Jämför med period:</span>
+            <select
+              style={{height:26,padding:"0 8px",borderRadius:5,border:"0.5px solid var(--border-strong)",
+                background:"var(--bg-surface)",color:"var(--text-muted)",fontSize:11,
+                fontFamily:"var(--font)",outline:"none",cursor:"pointer"}}
+              value={comparePeriod}
+              onChange={e => setComparePeriod(e.target.value)}>
+              {allPeriods.map((p:string) => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Summary pills */}
         <div className="var-summary-row">
