@@ -370,7 +370,6 @@ export default function DashboardPage() {
   const totalKonton   = topBudget.length || 1;
 
   // Period-selector
-  const allPeriods = periodSeries.map((p: any) => String(p.period || "")).filter(Boolean);
 
   return (
     <ProtectedLayout>
