@@ -6,6 +6,9 @@ import ProtectedLayout from "@/components/ProtectedLayout";
 import Header from "@/components/Header";
 import { uploadAnalyze, uploadAnalyzeWithMapping } from "@/lib/api";
 import { savePack, saveFileMeta, getFileMeta, clearAll, FileMeta } from "@/lib/store";
+import { useTeam } from "@/lib/useTeam";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE?.trim() || "";
 
 const MAPPING_FIELDS = [
   { key: "period",       label: "Period",         required: true,  hint: "Datum eller månad, t.ex. 2024-01 eller Jan-24" },
@@ -65,6 +68,350 @@ function FileChip({ meta, onRemove }: { meta: FileMeta; onRemove: () => void }) 
     </div>
   );
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// FORTNOX INTEGRATION SECTION
+// ═══════════════════════════════════════════════════════════════════
+
+type FortnoxStatus = "loading" | "disconnected" | "connected" | "connecting" | "syncing" | "error";
+
+function FortnoxSection({
+  onSyncDone,
+}: {
+  onSyncDone: () => void;
+}) {
+  const { company } = useTeam();
+  const companyId = company?.id ?? null;
+
+  const [status, setStatus]       = useState<FortnoxStatus>("loading");
+  const [scope, setScope]         = useState("");
+  const [companyInfo, setCompanyInfo] = useState<any>(null);
+  const [syncMsg, setSyncMsg]     = useState("");
+  const [errorMsg, setErrorMsg]   = useState("");
+
+  // ── Check Fortnox connection status on mount ──
+  useEffect(() => {
+    if (!companyId || !API_BASE) {
+      setStatus("disconnected");
+      return;
+    }
+    fetch(`${API_BASE}/api/fortnox/status?company_id=${companyId}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.connected) {
+          setStatus("connected");
+          setScope(data.scope || "");
+          // Also fetch company info
+          fetch(`${API_BASE}/api/fortnox/company-info?company_id=${companyId}`)
+            .then((r) => r.json())
+            .then((info) => setCompanyInfo(info))
+            .catch(() => {});
+        } else {
+          setStatus("disconnected");
+        }
+      })
+      .catch(() => setStatus("disconnected"));
+  }, [companyId]);
+
+  // ── Handle OAuth callback (code + state in URL) ──
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+    const state = params.get("state");
+
+    if (code && state) {
+      setStatus("connecting");
+      setErrorMsg("");
+
+      fetch(`${API_BASE}/api/fortnox/callback`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, state }),
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.ok) {
+            setStatus("connected");
+            setScope(data.scope || "");
+            // Clean URL
+            window.history.replaceState({}, "", "/connect");
+            // Fetch company info
+            fetch(`${API_BASE}/api/fortnox/company-info?company_id=${state}`)
+              .then((r) => r.json())
+              .then((info) => setCompanyInfo(info))
+              .catch(() => {});
+          } else {
+            setStatus("error");
+            setErrorMsg(data.detail || data.message || "Kopplingen misslyckades.");
+          }
+        })
+        .catch((err) => {
+          setStatus("error");
+          setErrorMsg(err.message || "Nätverksfel vid callback.");
+        });
+    }
+  }, []);
+
+  // ── Start OAuth flow ──
+  async function connectFortnox() {
+    if (!companyId) {
+      setErrorMsg("Inget bolag kopplat till ditt konto. Gå till Bolag & Team först.");
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/api/fortnox/auth-url?company_id=${companyId}`);
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        setErrorMsg(data.detail || "Kunde inte skapa auth-URL.");
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || "Nätverksfel.");
+    }
+  }
+
+  // ── Sync data from Fortnox ──
+  async function syncFortnox() {
+    if (!companyId) return;
+    setStatus("syncing");
+    setSyncMsg("");
+    setErrorMsg("");
+    try {
+      const res = await fetch(`${API_BASE}/api/fortnox/sync`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ company_id: companyId }),
+      });
+      const data = await res.json();
+      if (data.pack) {
+        savePack(data.pack);
+        setSyncMsg(data.message || "Data hämtad!");
+        setStatus("connected");
+        onSyncDone();
+      } else {
+        setStatus("connected");
+        setErrorMsg(data.message || "Inga verifikationer hittades.");
+      }
+    } catch (err: any) {
+      setStatus("error");
+      setErrorMsg(err.message || "Synk misslyckades.");
+    }
+  }
+
+  // ── Disconnect ──
+  async function disconnectFortnox() {
+    if (!companyId) return;
+    if (!confirm("Vill du koppla bort Fortnox? Du kan koppla igen senare.")) return;
+    try {
+      await fetch(`${API_BASE}/api/fortnox/disconnect?company_id=${companyId}`, {
+        method: "POST",
+      });
+      setStatus("disconnected");
+      setCompanyInfo(null);
+      setScope("");
+      setSyncMsg("");
+    } catch {}
+  }
+
+  // ── RENDER ──
+  return (
+    <div style={{
+      background: "var(--bg-elevated)",
+      border: "0.5px solid var(--border)",
+      borderRadius: "var(--radius-lg)",
+      padding: "20px 22px",
+      marginBottom: 24,
+    }}>
+      {/* Header row */}
+      <div style={{
+        display: "flex", alignItems: "center", gap: 12, marginBottom: 16,
+      }}>
+        {/* Fortnox logo */}
+        <div style={{
+          width: 36, height: 36, borderRadius: 8,
+          background: "#0E6B56", display: "flex", alignItems: "center",
+          justifyContent: "center", fontWeight: 800, fontSize: 16,
+          color: "#fff", flexShrink: 0,
+        }}>
+          F
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>
+            Fortnox
+          </div>
+          <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 1 }}>
+            {status === "connected"
+              ? companyInfo?.CompanyName || companyInfo?.Name || "Kopplad"
+              : status === "syncing"
+              ? "Hämtar data..."
+              : status === "connecting"
+              ? "Kopplar..."
+              : "Inte kopplad"}
+          </div>
+        </div>
+
+        {/* Status badge */}
+        {status === "connected" && (
+          <span style={{
+            fontSize: 10, fontWeight: 600, padding: "3px 10px", borderRadius: 20,
+            background: "var(--green-soft)", color: "var(--green)",
+            border: "0.5px solid rgba(34,197,94,0.2)", letterSpacing: ".04em",
+          }}>
+            ● Kopplad
+          </span>
+        )}
+        {status === "loading" && (
+          <span style={{ fontSize: 11, color: "var(--text-faint)" }}>Kontrollerar...</span>
+        )}
+      </div>
+
+      {/* Error */}
+      {errorMsg && (
+        <div style={{
+          padding: "8px 12px", borderRadius: "var(--radius)",
+          background: "rgba(239,68,68,0.08)", border: "0.5px solid rgba(239,68,68,0.25)",
+          color: "#ef4444", fontSize: 12, marginBottom: 14,
+        }}>
+          {errorMsg}
+        </div>
+      )}
+
+      {/* Success sync message */}
+      {syncMsg && (
+        <div style={{
+          padding: "8px 12px", borderRadius: "var(--radius)",
+          background: "var(--green-soft)", border: "0.5px solid rgba(34,197,94,0.2)",
+          color: "var(--green)", fontSize: 12, marginBottom: 14,
+        }}>
+          ✓ {syncMsg}
+        </div>
+      )}
+
+      {/* ── DISCONNECTED STATE ── */}
+      {(status === "disconnected" || status === "error") && (
+        <div>
+          <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 14, lineHeight: 1.6 }}>
+            Koppla din Fortnox-bokföring för att automatiskt hämta kontoplan,
+            verifikationer och bygga dashboards — utan filuppladdning.
+          </div>
+          <button
+            onClick={connectFortnox}
+            style={{
+              height: 38, padding: "0 20px", borderRadius: "var(--radius)",
+              border: "none", background: "#0E6B56", color: "#fff",
+              fontSize: 13, fontWeight: 600, cursor: "pointer",
+              fontFamily: "inherit", display: "flex", alignItems: "center", gap: 8,
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M8 1v6m0 0l2.5-2.5M8 7L5.5 4.5M2 10v2a2 2 0 002 2h8a2 2 0 002-2v-2"
+                stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Koppla Fortnox
+          </button>
+        </div>
+      )}
+
+      {/* ── CONNECTING STATE ── */}
+      {status === "connecting" && (
+        <div style={{
+          display: "flex", alignItems: "center", gap: 8,
+          padding: "10px 14px", borderRadius: "var(--radius)",
+          background: "var(--accent-soft)", border: "0.5px solid var(--accent-border)",
+          color: "var(--accent-text)", fontSize: 12,
+        }}>
+          <Spinner /> Kopplar Fortnox — vänta...
+        </div>
+      )}
+
+      {/* ── CONNECTED STATE ── */}
+      {status === "connected" && (
+        <div>
+          {/* Company info */}
+          {companyInfo && (
+            <div style={{
+              display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 20px",
+              padding: "12px 14px", borderRadius: "var(--radius)",
+              background: "var(--bg-surface)", border: "0.5px solid var(--border-mid)",
+              marginBottom: 14, fontSize: 12,
+            }}>
+              {companyInfo.OrganizationNumber && (
+                <div>
+                  <span style={{ color: "var(--text-faint)" }}>Org.nr: </span>
+                  <span style={{ color: "var(--text-muted)" }}>{companyInfo.OrganizationNumber}</span>
+                </div>
+              )}
+              {(companyInfo.CompanyName || companyInfo.Name) && (
+                <div>
+                  <span style={{ color: "var(--text-faint)" }}>Bolag: </span>
+                  <span style={{ color: "var(--text-muted)" }}>{companyInfo.CompanyName || companyInfo.Name}</span>
+                </div>
+              )}
+              {companyInfo.City && (
+                <div>
+                  <span style={{ color: "var(--text-faint)" }}>Ort: </span>
+                  <span style={{ color: "var(--text-muted)" }}>{companyInfo.City}</span>
+                </div>
+              )}
+              {scope && (
+                <div>
+                  <span style={{ color: "var(--text-faint)" }}>Scope: </span>
+                  <span style={{ color: "var(--text-muted)" }}>{scope}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Action buttons */}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button
+              onClick={syncFortnox}
+              className="ns-btn-primary"
+              style={{ display: "flex", alignItems: "center", gap: 7 }}
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                <path d="M2 8a6 6 0 0111.47-2.47M14 8a6 6 0 01-11.47 2.47"
+                  stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+                <path d="M14 2v4h-4M2 14v-4h4" stroke="currentColor" strokeWidth="1.3"
+                  strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Hämta data från Fortnox
+            </button>
+            <button
+              onClick={disconnectFortnox}
+              style={{
+                height: 34, padding: "0 14px", borderRadius: "var(--radius)",
+                border: "0.5px solid var(--border-strong)", background: "transparent",
+                color: "var(--text-faint)", fontSize: 12, cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              Koppla bort
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── SYNCING STATE ── */}
+      {status === "syncing" && (
+        <div style={{
+          display: "flex", alignItems: "center", gap: 8,
+          padding: "10px 14px", borderRadius: "var(--radius)",
+          background: "var(--accent-soft)", border: "0.5px solid var(--accent-border)",
+          color: "var(--accent-text)", fontSize: 12,
+        }}>
+          <Spinner /> Hämtar kontoplan och verifikationer från Fortnox...
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+// ═══════════════════════════════════════════════════════════════════
+// MAIN PAGE
+// ═══════════════════════════════════════════════════════════════════
 
 export default function ConnectPage() {
   const router   = useRouter();
@@ -170,8 +517,22 @@ export default function ConnectPage() {
         <div className="ns-hero">
           <div className="ns-hero-title">Importera data</div>
           <div className="ns-hero-sub">
-            Ladda upp Excel eller CSV — AI mappar kolumnerna automatiskt.
+            Koppla Fortnox direkt eller ladda upp Excel / CSV.
           </div>
+        </div>
+
+        {/* ═══ FORTNOX SECTION ═══ */}
+        <FortnoxSection onSyncDone={() => router.push("/dashboard")} />
+
+        {/* ── Divider between Fortnox and file upload ── */}
+        <div style={{
+          display: "flex", alignItems: "center", gap: 14,
+          margin: "8px 0 20px", color: "var(--text-faint)", fontSize: 11,
+          letterSpacing: ".06em", textTransform: "uppercase", fontWeight: 600,
+        }}>
+          <div style={{ flex: 1, height: 1, background: "var(--border-mid)" }} />
+          eller ladda upp fil
+          <div style={{ flex: 1, height: 1, background: "var(--border-mid)" }} />
         </div>
 
         {/* ── Active file chip ── */}
