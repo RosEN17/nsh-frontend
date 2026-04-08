@@ -111,69 +111,86 @@ function TrendChart({ series, selectedPeriod, onPeriodClick }: {
     </div>
   );
 
-  const W = 100; const H = 60;
-  const actuals = series.map(p => Math.abs(Number(p.actual || 0)));
-  const budgets = series.map(p => Math.abs(Number(p.budget || 0)));
-  const max     = Math.max(...actuals, ...budgets, 1);
+  const W = 500; const H = 80;
+  const PAD = 8;
+
+  const actuals = series.map(p => Number(p.actual || 0));
+  const budgets = series.map(p => Number(p.budget || 0));
+  const allVals = [...actuals, ...budgets];
+  const minVal  = Math.min(...allVals);
+  const maxVal  = Math.max(...allVals);
+  const range   = maxVal - minVal || 1;
+
+  function toY(v: number) {
+    return PAD + (1 - (v - minVal) / range) * (H - PAD * 2);
+  }
 
   function toPoints(vals: number[]) {
-    return vals.map((v, i) => {
-      const x = series.length < 2 ? W/2 : (i / (series.length - 1)) * W;
-      const y = H - (v / max) * (H - 8) - 4;
-      return { x, y };
-    });
+    return vals.map((v, i) => ({
+      x: series.length < 2 ? W/2 : (i / (series.length - 1)) * W,
+      y: toY(v),
+    }));
   }
 
   const aPts = toPoints(actuals);
   const bPts = toPoints(budgets);
+  const zeroY = toY(0);
 
   function pathD(pts: {x:number;y:number}[]) {
-    return pts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ");
+    return pts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
   }
 
-  const areaD = `${pathD(aPts)} L${aPts.at(-1)!.x},${H} L${aPts[0].x},${H} Z`;
+  const areaD = `${pathD(aPts)} L${aPts.at(-1)!.x},${zeroY} L${aPts[0].x},${zeroY} Z`;
 
   return (
     <div style={{ position: "relative" }}>
-      <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none"
-        style={{ overflow: "visible", display: "block" }}>
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`}
+        style={{ display: "block", overflow: "hidden" }}>
         <defs>
           <linearGradient id="aG" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#6c63ff" stopOpacity="0.2"/>
+            <stop offset="0%" stopColor="#6c63ff" stopOpacity="0.25"/>
             <stop offset="100%" stopColor="#6c63ff" stopOpacity="0"/>
           </linearGradient>
         </defs>
+        {/* Zero line */}
+        {minVal < 0 && maxVal > 0 && (
+          <line x1="0" y1={zeroY.toFixed(1)} x2={W} y2={zeroY.toFixed(1)}
+            stroke="rgba(255,255,255,0.1)" strokeWidth="0.5" strokeDasharray="4,4"/>
+        )}
         <path d={areaD} fill="url(#aG)"/>
-        <path d={pathD(bPts)} fill="none" stroke="rgba(255,255,255,0.15)"
-          strokeWidth="1" strokeDasharray="2,2"/>
-        <path d={pathD(aPts)} fill="none" stroke="#6c63ff" strokeWidth="1.5"
+        {budgets.some(b => b !== 0) && (
+          <path d={pathD(bPts)} fill="none" stroke="rgba(255,255,255,0.2)"
+            strokeWidth="1" strokeDasharray="3,3"/>
+        )}
+        <path d={pathD(aPts)} fill="none" stroke="#6c63ff" strokeWidth="2"
           strokeLinecap="round" strokeLinejoin="round"/>
         {aPts.map((p, i) => {
           const period = String(series[i]?.period || "");
           const isSel  = period === selectedPeriod;
           return (
             <g key={i} style={{ cursor: "pointer" }} onClick={() => onPeriodClick(period)}>
-              <circle cx={p.x} cy={p.y} r={isSel ? 4 : 2.5}
+              <circle cx={p.x.toFixed(1)} cy={p.y.toFixed(1)} r="8"
+                fill="transparent"/>
+              <circle cx={p.x.toFixed(1)} cy={p.y.toFixed(1)}
+                r={isSel ? 4 : 3}
                 fill={isSel ? "#fff" : "#6c63ff"}
-                stroke={isSel ? "#6c63ff" : "none"} strokeWidth="2"/>
+                stroke={isSel ? "#6c63ff" : "rgba(108,99,255,0.4)"}
+                strokeWidth="2"/>
             </g>
           );
         })}
       </svg>
-      {/* Period labels */}
-      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-        {series.slice(-6).map((p, i) => {
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
+        {series.map((p, i) => {
           const period = String(p.period || "");
           const isSel  = period === selectedPeriod;
           return (
-            <button key={i}
-              onClick={() => onPeriodClick(period)}
-              style={{
-                fontSize: 9, color: isSel ? "#6c63ff" : "var(--text-faint)",
-                fontWeight: isSel ? 700 : 400, background: "none",
-                border: "none", cursor: "pointer", padding: "2px 0",
-                fontFamily: "var(--font)",
-              }}>
+            <button key={i} onClick={() => onPeriodClick(period)} style={{
+              fontSize: 9, color: isSel ? "#6c63ff" : "var(--text-faint)",
+              fontWeight: isSel ? 700 : 400, background: "none",
+              border: "none", cursor: "pointer", padding: "2px 0",
+              fontFamily: "var(--font)", flex: 1, textAlign: "center",
+            }}>
               {period.slice(-5)}
             </button>
           );
@@ -259,6 +276,12 @@ export default function DashboardPage() {
   const [searchTerm,     setSearchTerm]     = useState("");
   const [sortBy,         setSortBy]         = useState<"actual" | "diff" | "konto">("diff");
   const [showAll,        setShowAll]        = useState(false);
+  const [comparePeriod,  setComparePeriod]  = useState<string>(
+    Array.isArray(pack?.periods) && pack.periods.length >= 2
+      ? pack.periods[pack.periods.length - 2]
+      : pack?.previous_period || ""
+  );
+  const allPeriods = Array.isArray(pack?.periods) ? pack.periods : [];
 
   if (!pack) {
     return (
@@ -360,7 +383,7 @@ export default function DashboardPage() {
             <div className="ns-hero-title">Dashboard</div>
             <div className="ns-hero-sub">
               {activePeriod}
-              {pack.previous_period && ` · jämför ${pack.previous_period}`}
+              {comparePeriod && ` · jämför ${comparePeriod}`}
             </div>
           </div>
           <div className="db2-header-right">
@@ -368,6 +391,24 @@ export default function DashboardPage() {
               <span className="db2-live-dot" />
               Senaste uppladdning
             </div>
+            {allPeriods.length > 1 && (
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontSize: 11, color: "var(--text-faint)" }}>Jämför:</span>
+                <select
+                  value={comparePeriod}
+                  onChange={e => setComparePeriod(e.target.value)}
+                  style={{
+                    height: 28, padding: "0 8px", borderRadius: 5,
+                    border: "0.5px solid var(--border-strong)",
+                    background: "var(--bg-elevated)", color: "var(--text-muted)",
+                    fontSize: 11, fontFamily: "var(--font)", outline: "none", cursor: "pointer",
+                  }}>
+                  {allPeriods.map((p: string) => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <a href="/variances" className="db2-goto-btn">Hantera avvikelser →</a>
           </div>
         </div>
