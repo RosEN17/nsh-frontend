@@ -5,7 +5,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useTeam } from "@/lib/useTeam";
-import { getPack } from "@/lib/store";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE?.trim() || "";
 
@@ -92,20 +91,11 @@ export default function Sidebar() {
   const pathname = usePathname();
   const router   = useRouter();
   const { me, company } = useTeam();
-  const pack     = getPack();
 
-  const [alertCount, setAlertCount] = useState(0);
   const [inboxCount, setInboxCount] = useState(0);
 
   useEffect(() => {
-    if (pack) {
-      setAlertCount((pack.top_budget?.length || 0) + (pack.top_mom?.length || 0));
-    }
-  }, []);
-
-  useEffect(() => {
     if (!me?.id) return;
-    // Inbox — bara om tabellen finns
     supabase.from("inbox_messages")
       .select("id", { count: "exact" })
       .eq("to_id", me.id)
@@ -145,24 +135,13 @@ export default function Sidebar() {
       {/* Fortnox status */}
       <FortnoxBlock companyId={company?.id ?? null} />
 
-      {/* Period */}
-      {pack?.current_period && (
-        <div className="sb-period-wrap">
-          <div className="sb-period-dot" />
-          <div>
-            <div className="sb-period-label">Aktiv period</div>
-            <div className="sb-period-val">{pack.current_period}</div>
-          </div>
-        </div>
-      )}
-
       <div className="sb-divider" />
 
       {/* Notiser */}
       <div className="sb-section-label">Notiser</div>
       <nav className="sb-nav">
-        <SbLink href="/alerts" icon="alerts" label="AI Alerts"  badge={alertCount} />
-        <SbLink href="/inbox"  icon="inbox"  label="Inkorg"     badge={inboxCount} />
+        <SbLink href="/alerts" icon="alerts" label="Datakvalitet" />
+        <SbLink href="/inbox"  icon="inbox"  label="Inkorg" badge={inboxCount} />
       </nav>
 
       <div className="sb-divider" />
