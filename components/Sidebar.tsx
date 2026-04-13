@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useTeam } from "@/lib/useTeam";
+import { getPack } from "@/lib/store";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE?.trim() || "";
 
@@ -24,22 +25,16 @@ function NordsheetLogo() {
 
 function SbIcon({ name }: { name: string }) {
   const icons: Record<string, JSX.Element> = {
-    alerts:  <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 1C8 1,9.5 6.5,15 8C9.5 9.5,8 15,8 15C8 15,6.5 9.5,1 8C6.5 6.5,8 1,8 1Z" fill="currentColor"/></svg>,
-    inbox:   <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 4a1 1 0 011-1h10a1 1 0 011 1v7a1 1 0 01-1 1H3a1 1 0 01-1-1V4z" stroke="currentColor" strokeWidth="1.2" fill="none"/><path d="M2 7h3l1.5 2h3L11 7h3" stroke="currentColor" strokeWidth="1.2" fill="none"/></svg>,
-    calendar:<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="1" y="3" width="14" height="12" rx="2" stroke="currentColor" strokeWidth="1.2" fill="none"/><path d="M1 7h14M5 1v4M11 1v4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>,
-    reports: <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 2h7l3 3v9a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z" stroke="currentColor" strokeWidth="1.2" fill="none"/><path d="M10 2v3h3M5 8h6M5 11h4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>,
-    profile: <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5" r="3" stroke="currentColor" strokeWidth="1.2" fill="none"/><path d="M2 14c0-3.314 2.686-5 6-5s6 1.686 6 5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" fill="none"/></svg>,
-    team:    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="6" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.2" fill="none"/><circle cx="11" cy="5" r="2" stroke="currentColor" strokeWidth="1.2" fill="none"/><path d="M1 13c0-2.5 2-4 5-4s5 1.5 5 4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" fill="none"/><path d="M11 9c2 0 4 1 4 3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" fill="none"/></svg>,
-    settings:<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2.5" stroke="currentColor" strokeWidth="1.2" fill="none"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>,
-    help:    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.2" fill="none"/><path d="M6 6c0-1.1.9-2 2-2s2 .9 2 2c0 1.5-2 2-2 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" fill="none"/><circle cx="8" cy="12" r=".7" fill="currentColor"/></svg>,
-    logout:  <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h3M10 11l3-3-3-3M13 8H6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>,
-    filer:   <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 2h6l4 4v8a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z" stroke="currentColor" strokeWidth="1.2" fill="none"/><path d="M9 2v4h4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>,
-    fakturor:<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="2" y="1" width="12" height="14" rx="1.5" stroke="currentColor" strokeWidth="1.2" fill="none"/><path d="M5 5h6M5 8h6M5 11h4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>,
+    dashboard: <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2"><rect x="1" y="1" width="6" height="6" rx="1.5"/><rect x="9" y="1" width="6" height="6" rx="1.5"/><rect x="1" y="9" width="6" height="6" rx="1.5"/><rect x="9" y="9" width="6" height="6" rx="1.5"/></svg>,
+    alerts:    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 1C8 1,9.5 6.5,15 8C9.5 9.5,8 15,8 15C8 15,6.5 9.5,1 8C6.5 6.5,8 1,8 1Z" fill="currentColor"/></svg>,
+    reports:   <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2"><path d="M3 2h7l3 3v9a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M10 2v3h3M5 8h6M5 11h4" strokeLinecap="round"/></svg>,
+    import:    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2"><path d="M8 2v8M5 7l3 3 3-3" strokeLinecap="round" strokeLinejoin="round"/><path d="M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2" strokeLinecap="round"/></svg>,
+    settings:  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41" strokeLinecap="round"/></svg>,
+    logout:    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2"><path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h3M10 11l3-3-3-3M13 8H6" strokeLinecap="round" strokeLinejoin="round"/></svg>,
   };
   return icons[name] || null;
 }
 
-// ── Fortnox status block ──────────────────────────────────────────
 function FortnoxBlock({ companyId }: { companyId: string | null }) {
   const [connected, setConnected] = useState<boolean | null>(null);
 
@@ -54,12 +49,10 @@ function FortnoxBlock({ companyId }: { companyId: string | null }) {
   async function connect() {
     if (!companyId || !API_BASE) return;
     try {
-      const res  = await fetch(`${API_BASE}/api/fortnox/auth-url?company_id=${companyId}`);
+      const res = await fetch(`${API_BASE}/api/fortnox/auth-url?company_id=${companyId}`);
       const data = await res.json();
       if (data.url) window.location.href = data.url;
-    } catch {
-      window.location.href = "/connect";
-    }
+    } catch { window.location.href = "/connect"; }
   }
 
   return (
@@ -67,9 +60,7 @@ function FortnoxBlock({ companyId }: { companyId: string | null }) {
       <div className="sb-fortnox-row">
         <div className="sb-fortnox-logo">F</div>
         <div className="sb-fortnox-label">Fortnox</div>
-        {connected === null && (
-          <span className="sb-fortnox-checking">...</span>
-        )}
+        {connected === null && <span className="sb-fortnox-checking">...</span>}
         {connected === true && (
           <div className="sb-fortnox-status">
             <span className="sb-fortnox-dot" />
@@ -77,31 +68,20 @@ function FortnoxBlock({ companyId }: { companyId: string | null }) {
           </div>
         )}
         {connected === false && (
-          <button className="sb-fortnox-btn" onClick={connect}>
-            Koppla
-          </button>
+          <button className="sb-fortnox-btn" onClick={connect}>Koppla</button>
         )}
       </div>
     </div>
   );
 }
 
-// ── Main sidebar ──────────────────────────────────────────────────
 export default function Sidebar() {
   const pathname = usePathname();
   const router   = useRouter();
   const { me, company } = useTeam();
+  const pack = getPack();
 
-  const [inboxCount, setInboxCount] = useState(0);
-
-  useEffect(() => {
-    if (!me?.id) return;
-    supabase.from("inbox_messages")
-      .select("id", { count: "exact" })
-      .eq("to_id", me.id)
-      .eq("read", false)
-      .then(({ count }) => setInboxCount(count || 0))
-  }, [me?.id]);
+  const alertCount = pack?.all_flagged?.length || 0;
 
   async function signOut() {
     await supabase.auth.signOut();
@@ -111,7 +91,7 @@ export default function Sidebar() {
   function SbLink({ href, icon, label, badge }: {
     href: string; icon: string; label: string; badge?: number;
   }) {
-    const active = pathname === href;
+    const active = pathname === href || (href === "/connect" && pathname === "/filer");
     return (
       <Link href={href} className={`sb-nav-item${active ? " active" : ""}`}>
         <span className="sb-nav-icon"><SbIcon name={icon} /></span>
@@ -125,58 +105,38 @@ export default function Sidebar() {
 
   return (
     <aside className="sidebar">
-
-      {/* Logo */}
       <div className="sb-brand">
         <NordsheetLogo />
-        <div className="sb-tagline">Finance platform</div>
       </div>
 
-      {/* Fortnox status */}
       <FortnoxBlock companyId={company?.id ?? null} />
 
       <div className="sb-divider" />
 
-      {/* Notiser */}
-      <div className="sb-section-label">Notiser</div>
+      <div className="sb-section-label">Analys</div>
       <nav className="sb-nav">
-        <SbLink href="/alerts" icon="alerts" label="Datakvalitet" />
-        <SbLink href="/inbox"  icon="inbox"  label="Inkorg" badge={inboxCount} />
+        <SbLink href="/dashboard" icon="dashboard" label="Dashboard" />
+        <SbLink href="/variances" icon="alerts" label="Avvikelser" badge={alertCount > 0 ? alertCount : undefined} />
       </nav>
 
       <div className="sb-divider" />
 
-      {/* Uppföljningar */}
-      <div className="sb-section-label">Uppföljningar</div>
+      <div className="sb-section-label">Export</div>
       <nav className="sb-nav">
-        <SbLink href="/calendar" icon="calendar" label="Kalender" />
+        <SbLink href="/reports" icon="reports" label="Rapport" />
       </nav>
 
       <div className="sb-divider" />
 
-      {/* Filer & Fakturor */}
       <div className="sb-section-label">Importera</div>
       <nav className="sb-nav">
-        <SbLink href="/filer"    icon="filer"    label="Filer" />
-        <SbLink href="/fakturor" icon="fakturor" label="Fakturor" />
+        <SbLink href="/connect" icon="import" label="Data" />
       </nav>
 
-      <div className="sb-divider" />
-
-      {/* Rapporter */}
-      <div className="sb-section-label">Rapporter</div>
-      <nav className="sb-nav">
-        <SbLink href="/reports" icon="reports" label="Sparade rapporter" />
-      </nav>
-
-      {/* Bottom */}
       <div className="sb-bottom">
         <div className="sb-divider" />
         <nav className="sb-nav">
-          <SbLink href="/profile"  icon="profile"  label="Min profil" />
-          <SbLink href="/team"     icon="team"     label="Bolag & Team" />
-          <SbLink href="/settings" icon="settings" label="Inställningar" />
-          <SbLink href="/help"     icon="help"     label="Hjälp & support" />
+          <SbLink href="/settings" icon="settings" label="Installningar" />
         </nav>
         <button className="sb-logout" onClick={signOut}>
           <span className="sb-nav-icon"><SbIcon name="logout" /></span>
