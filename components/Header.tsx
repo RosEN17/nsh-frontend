@@ -9,6 +9,9 @@ function initials(name: string) {
 }
 
 export default function Header({ reportCount }: { reportCount?: number } = {}) {
+  const { me, company } = useTeam();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const dropRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
@@ -44,7 +47,6 @@ export default function Header({ reportCount }: { reportCount?: number } = {}) {
             fontSize: 10, fontWeight: 600, color: "#9b94ff",
           }}>{initials(me?.full_name || "?")}</div>
         </button>
-
         {menuOpen && (
           <div style={{
             position: "absolute", top: "100%", right: 0, marginTop: 6, zIndex: 50,
@@ -58,12 +60,9 @@ export default function Header({ reportCount }: { reportCount?: number } = {}) {
             <button onClick={signOut} style={{
               width: "100%", padding: "8px 12px", border: "none",
               background: "transparent", color: "#a0a0b8", fontSize: 12,
-              cursor: "pointer", textAlign: "left", borderRadius: 6,
+              cursor: "pointer", textAlign: "left" as const, borderRadius: 6,
               fontFamily: "inherit",
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
-            onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
-            >Logga ut</button>
+            }}>Logga ut</button>
           </div>
         )}
       </div>
