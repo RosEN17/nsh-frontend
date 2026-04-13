@@ -8,10 +8,7 @@ function initials(name: string) {
   return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2) || "?";
 }
 
-export default function Header() {
-  const { me, company } = useTeam();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const dropRef = useRef<HTMLDivElement>(null);
+export default function Header({ reportCount }: { reportCount?: number } = {}) {
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
