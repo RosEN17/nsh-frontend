@@ -1,32 +1,21 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useTeam } from "@/lib/useTeam";
-
-const navItems = [
-  { label: "Dashboard", href: "/dashboard" },
-  { label: "Variances", href: "/variances" },
-  { label: "Forecast",  href: "/forecast" },
-  { label: "Report",    href: "/export" },
-];
 
 function initials(name: string) {
   return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2) || "?";
 }
 
-export default function Header({ reportCount }: { reportCount: number }) {
-  const pathname = usePathname();
-  const { me, members, company } = useTeam();
-  const [teamOpen, setTeamOpen] = useState(false);
+export default function Header() {
+  const { me, company } = useTeam();
+  const [menuOpen, setMenuOpen] = useState(false);
   const dropRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
-      if (dropRef.current && !dropRef.current.contains(e.target as Node)) {
-        setTeamOpen(false);
-      }
+      if (dropRef.current && !dropRef.current.contains(e.target as Node)) setMenuOpen(false);
     }
     document.addEventListener("mousedown", onClick);
     return () => document.removeEventListener("mousedown", onClick);
@@ -38,60 +27,48 @@ export default function Header({ reportCount }: { reportCount: number }) {
   }
 
   return (
-    <div className="optima-headerbar">
-      <nav className="ns-topnav">
-        {navItems.map((item, i) => (
-          <span key={i} style={{ display: "contents" }}>
-            {i > 0 && <span className="ns-topnav-sep">—</span>}
-            <a href={item.href}
-              className={`ns-topnav-item${pathname === item.href ? " active" : ""}`}>
-              {item.label}
-            </a>
-          </span>
-        ))}
-      </nav>
+    <div style={{
+      display: "flex", alignItems: "center", justifyContent: "flex-end",
+      padding: "0 0 16px", gap: 12,
+    }}>
+      <div ref={dropRef} style={{ position: "relative" }}>
+        <button onClick={() => setMenuOpen(!menuOpen)} style={{
+          display: "flex", alignItems: "center", gap: 8,
+          padding: "6px 12px", borderRadius: 8,
+          border: "0.5px solid rgba(255,255,255,0.06)",
+          background: "transparent", color: "#a0a0b8", fontSize: 12,
+          cursor: "pointer", fontFamily: "inherit",
+        }}>
+          <span style={{ color: "#f0f0f8", fontWeight: 500 }}>{company?.name || "Mitt bolag"}</span>
+          <div style={{
+            width: 26, height: 26, borderRadius: "50%",
+            background: "rgba(108,99,255,0.12)", display: "flex",
+            alignItems: "center", justifyContent: "center",
+            fontSize: 10, fontWeight: 600, color: "#9b94ff",
+          }}>{initials(me?.full_name || "?")}</div>
+        </button>
 
-      <div className="header-right">
-        <div className="hdr-team-wrap" ref={dropRef}>
-          <button className="hdr-team-btn" onClick={() => setTeamOpen(!teamOpen)}>
-            <span className="hdr-team-company">{company?.name || "Mitt bolag"}</span>
-            <span className="hdr-team-count">{members.length}</span>
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none"
-              style={{ transform: teamOpen ? "rotate(180deg)" : "", transition: "transform .15s" }}>
-              <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5"
-                strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </button>
-
-          {teamOpen && (
-            <div className="hdr-team-dropdown">
-              <div className="hdr-team-header">
-                <div className="hdr-team-header-title">{company?.name || "Ditt bolag"}</div>
-                <div className="hdr-team-header-sub">{members.length} medlemmar</div>
-              </div>
-              <div className="hdr-team-list">
-                {members.map((m) => (
-                  <div key={m.id} className={`hdr-team-member${m.id === me?.id ? " is-me" : ""}`}>
-                    <div className="hdr-member-avatar">{initials(m.full_name || "?")}</div>
-                    <div>
-                      <div className="hdr-member-name">
-                        {m.full_name || "Okänd"}{m.id === me?.id && " (du)"}
-                      </div>
-                      <div className="hdr-member-role">{m.role || "—"}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="hdr-team-footer">
-                <button className="hdr-sign-out" onClick={signOut}>Logga ut</button>
-              </div>
+        {menuOpen && (
+          <div style={{
+            position: "absolute", top: "100%", right: 0, marginTop: 6, zIndex: 50,
+            background: "#12121c", border: "0.5px solid rgba(255,255,255,0.08)",
+            borderRadius: 10, padding: 6, minWidth: 180,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+          }}>
+            <div style={{ padding: "8px 12px", fontSize: 11, color: "#55556a", borderBottom: "0.5px solid rgba(255,255,255,0.04)", marginBottom: 4 }}>
+              {me?.full_name || "Anvandare"}
             </div>
-          )}
-        </div>
-
-        <div className="hdr-me-avatar" title={me?.full_name || ""}>
-          {initials(me?.full_name || "?")}
-        </div>
+            <button onClick={signOut} style={{
+              width: "100%", padding: "8px 12px", border: "none",
+              background: "transparent", color: "#a0a0b8", fontSize: 12,
+              cursor: "pointer", textAlign: "left", borderRadius: 6,
+              fontFamily: "inherit",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
+            >Logga ut</button>
+          </div>
+        )}
       </div>
     </div>
   );
