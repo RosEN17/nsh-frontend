@@ -17,7 +17,7 @@ export default function SettingsPage() {
 
   return (
     <ProtectedLayout>
-      <Header reportCount={0} />
+      <Header />
       <div className="ns-page" style={{ maxWidth: 520 }}>
         <div className="ns-hero-title">Inställningar</div>
         <div className="ns-hero-sub" style={{ marginTop: 3 }}>Anpassa din upplevelse</div>
