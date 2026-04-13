@@ -35,7 +35,7 @@ export default function ReportsPage() {
 
   return (
     <ProtectedLayout>
-      <Header reportCount={reports.length} />
+      <Header />
       <div className="ns-page">
         <div className="ns-hero-title">Sparade rapporter</div>
         <div className="ns-hero-sub" style={{ marginTop: 3 }}>
