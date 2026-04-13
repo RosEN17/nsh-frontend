@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import Sidebar from "./Sidebar";
+import ChatWidget from "./ChatWidget";
 
 export default function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const router   = useRouter();
@@ -20,7 +21,6 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
     });
   }, [router]);
 
-  // Redirect to /connect right after sign-in
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_IN" && pathname === "/login") {
@@ -45,6 +45,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
     <div className="app-shell">
       <Sidebar />
       <main className="main-shell">{children}</main>
+      <ChatWidget />
     </div>
   );
 }
