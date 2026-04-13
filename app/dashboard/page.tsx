@@ -12,145 +12,13 @@ function fmtMoney(n: number): string {
   return `${Math.round(n)}`;
 }
 
-// ── Sparkline ─────────────────────────────────────────────────────
-function Sparkline({ values, color }: { values: number[]; color: string }) {
-  if (values.length < 2) return null;
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = max - min || 1;
-  const W = 80; const H = 28;
-  const pts = values.map((v, i) => {
-    const x = (i / (values.length - 1)) * W;
-    const y = H - ((v - min) / range) * H;
-    return `${x},${y}`;
-  }).join(" ");
-  return (
-    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ overflow: "visible" }}>
-      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.5"
-        strokeLinecap="round" strokeLinejoin="round" opacity="0.8" />
-      <circle cx={pts.split(" ").at(-1)!.split(",")[0]}
-        cy={pts.split(" ").at(-1)!.split(",")[1]}
-        r="2.5" fill={color} />
-    </svg>
-  );
-}
-
-// ── KPI card ──────────────────────────────────────────────────────
-function KPICard({ label, value, sub, trend, trendPos, sparkValues }: {
-  label: string; value: string; sub: string;
-  trend?: string; trendPos?: boolean; sparkValues?: number[];
-}) {
-  return (
-    <div className="db2-kpi">
-      <div className="db2-kpi-top">
-        <span className="db2-kpi-label">{label}</span>
-        {trend && (
-          <span className={`db2-kpi-badge ${trendPos ? "db2-badge-pos" : "db2-badge-neg"}`}>
-            {trendPos ? "↑" : "↓"} {trend}
-          </span>
-        )}
-      </div>
-      <div className="db2-kpi-bottom">
-        <div>
-          <div className={`db2-kpi-val ${trendPos === false ? "db2-val-neg" : ""}`}>{value}</div>
-          <div className="db2-kpi-sub">{sub}</div>
-        </div>
-        {sparkValues && sparkValues.length >= 2 && (
-          <Sparkline values={sparkValues} color={trendPos === false ? "#ef4444" : "#6c63ff"} />
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ── Horizontal bar ─────────────────────────────────────────────────
-function HBar({ label, actual, budget, max }: {
-  label: string; actual: number; budget: number; max: number;
-}) {
-  const aW = max > 0 ? (Math.abs(actual) / max) * 100 : 0;
-  const bW = max > 0 ? (Math.abs(budget) / max) * 100 : 0;
-  const pos = actual >= budget;
-  return (
-    <div className="db2-hbar-row">
-      <div className="db2-hbar-label">{label}</div>
-      <div className="db2-hbar-tracks">
-        <div className="db2-hbar-track">
-          <div className="db2-hbar-fill db2-hbar-actual" style={{ width: `${aW}%` }} />
-        </div>
-        <div className="db2-hbar-track db2-hbar-track-budget">
-          <div className="db2-hbar-fill db2-hbar-budget-fill" style={{ width: `${bW}%` }} />
-        </div>
-      </div>
-      <div className={`db2-hbar-val ${pos ? "db2-pos" : "db2-neg"}`}>{fmtMoney(actual)}</div>
-    </div>
-  );
-}
-
-// ── Variance item row ──────────────────────────────────────────────
-function VarRow({ label, konto, impact, pct }: {
-  label: string; konto: string; impact: number; pct: number;
-}) {
-  const pos = impact >= 0;
-  const barW = Math.min(Math.abs(pct) * 300, 100);
-  return (
-    <div className="db2-var-row">
-      <div className="db2-var-left">
-        {konto && <span className="db2-var-konto">{konto}</span>}
-        <span className="db2-var-name">{label}</span>
-      </div>
-      <div className="db2-var-bar-wrap">
-        <div className="db2-var-bar-track">
-          <div className="db2-var-bar-fill"
-            style={{ width: `${barW}%`, background: pos ? "#22c55e" : "#ef4444" }} />
-        </div>
-      </div>
-      <div className={`db2-var-val ${pos ? "db2-pos" : "db2-neg"}`}>
-        {pos ? "+" : "−"}{fmtMoney(Math.abs(impact))}
-      </div>
-    </div>
-  );
-}
-
-// ── Period timeline ────────────────────────────────────────────────
-function PeriodTimeline({ series }: { series: any[] }) {
-  if (!series || series.length < 2) return null;
-  const max = Math.max(...series.map((p: any) => Math.abs(Number(p.actual || 0))), 1);
-  const W = 100; const H = 44;
-  const pts = series.slice(-8).map((p: any, i: number, arr) => {
-    const x = arr.length < 2 ? W / 2 : (i / (arr.length - 1)) * W;
-    const y = H - (Math.abs(Number(p.actual || 0)) / max) * (H - 8) - 4;
-    return { x, y, val: Number(p.actual || 0), label: String(p.period || "") };
-  });
-  const pathD = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ");
-  const areaD = `${pathD} L${pts.at(-1)!.x},${H} L${pts[0].x},${H} Z`;
-  return (
-    <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: "visible" }} preserveAspectRatio="none">
-      <defs>
-        <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#6c63ff" stopOpacity="0.15" />
-          <stop offset="100%" stopColor="#6c63ff" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <path d={areaD} fill="url(#areaGrad)" />
-      <path d={pathD} fill="none" stroke="#6c63ff" strokeWidth="1.5"
-        strokeLinecap="round" strokeLinejoin="round" />
-      {pts.map((p, i) => (
-        <circle key={i} cx={p.x} cy={p.y} r="2.5"
-          fill={i === pts.length - 1 ? "#6c63ff" : "var(--bg-elevated)"}
-          stroke="#6c63ff" strokeWidth="1.5" />
-      ))}
-    </svg>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// COMPARISON LOGIC — MoM & YoY
-// ═══════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════════
+   COMPARISON LOGIC
+   ═══════════════════════════════════════════════════════════════════ */
 
 type CompareMode = "mom" | "yoy";
 
 function parsePeriod(p: string): { year: number; month: number } | null {
-  // Handles: "2025-03", "202503", "2025-Q1" etc
   const m1 = p.match(/^(\d{4})-(\d{2})$/);
   if (m1) return { year: parseInt(m1[1]), month: parseInt(m1[2]) };
   const m2 = p.match(/^(\d{4})(\d{2})$/);
@@ -166,19 +34,13 @@ function getComparePeriod(period: string, mode: CompareMode): string | null {
     if (m < 1) return `${p.year - 1}-12`;
     return `${p.year}-${String(m).padStart(2, "0")}`;
   }
-  // YoY
   return `${p.year - 1}-${String(p.month).padStart(2, "0")}`;
 }
 
-function computeComparison(
-  detailedRows: any[],
-  selectedPeriod: string,
-  comparePeriod: string,
-) {
+function computeComparison(detailedRows: any[], selectedPeriod: string, comparePeriod: string) {
   const current = detailedRows.filter((r: any) => String(r.period || "") === selectedPeriod);
   const compare = detailedRows.filter((r: any) => String(r.period || "") === comparePeriod);
 
-  // Build maps
   const currentMap: Record<string, { actual: number; budget: number; name: string }> = {};
   for (const r of current) {
     const k = String(r.account || "");
@@ -194,63 +56,47 @@ function computeComparison(
     compareMap[k].budget += Number(r.budget || 0);
   }
 
-  // Totals
   const totalCurrent = Object.values(currentMap).reduce((s, v) => s + v.actual, 0);
   const totalCompare = Object.values(compareMap).reduce((s, v) => s + v.actual, 0);
   const totalDiff = totalCurrent - totalCompare;
   const totalPct = totalCompare !== 0 ? totalDiff / Math.abs(totalCompare) : 0;
 
-  // Per-account diffs
   const allAccounts = new Set([...Object.keys(currentMap), ...Object.keys(compareMap)]);
   const diffs = Array.from(allAccounts).map(k => {
     const cur = currentMap[k]?.actual || 0;
     const comp = compareMap[k]?.actual || 0;
     const diff = cur - comp;
     const pctDiff = comp !== 0 ? diff / Math.abs(comp) : 0;
-    return {
-      account: k,
-      label: currentMap[k]?.name || compareMap[k] ? k : k,
-      current: cur,
-      compare: comp,
-      diff,
-      pctDiff,
-    };
-  }).sort((a, b) => a.diff - b.diff); // worst first
+    return { account: k, label: currentMap[k]?.name || k, current: cur, compare: comp, diff, pctDiff };
+  }).sort((a, b) => a.diff - b.diff);
 
   return {
-    totalCurrent,
-    totalCompare,
-    totalDiff,
-    totalPct,
+    totalCurrent, totalCompare, totalDiff, totalPct,
     negDiffs: diffs.filter(d => d.diff < 0).slice(0, 5),
     posDiffs: diffs.filter(d => d.diff > 0).reverse().slice(0, 5),
   };
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// MAIN PAGE
-// ═══════════════════════════════════════════════════════════════════
+
+/* ═══════════════════════════════════════════════════════════════════
+   MAIN PAGE
+   ═══════════════════════════════════════════════════════════════════ */
 
 export default function DashboardPage() {
   const pack = getPack();
   const reportItems = getReportItems();
 
   const [compareMode, setCompareMode] = useState<CompareMode>("mom");
-  const [activeVar, setActiveVar] = useState<"neg" | "pos">("neg");
 
-  // Period selector
   const periods = useMemo(() => pack?.periods || [], [pack]);
   const [selectedPeriod, setSelectedPeriod] = useState(() =>
     pack?.current_period || (periods.length > 0 ? periods[periods.length - 1] : "")
   );
 
-  // Compute comparison
   const comparison = useMemo(() => {
     if (!pack) return null;
     const detailedRows = pack.detailed_rows || [];
     const comparePeriod = getComparePeriod(selectedPeriod, compareMode);
-
-    // If we have detailed_rows, use period-level comparison
     if (detailedRows.length > 0 && comparePeriod) {
       return computeComparison(detailedRows, selectedPeriod, comparePeriod);
     }
@@ -259,6 +105,7 @@ export default function DashboardPage() {
 
   const comparePeriodLabel = getComparePeriod(selectedPeriod, compareMode) || "—";
 
+  /* ── empty state ── */
   if (!pack) {
     return (
       <ProtectedLayout>
@@ -266,7 +113,7 @@ export default function DashboardPage() {
         <div className="ns-page">
           <div className="ns-hero-title">Dashboard</div>
           <div className="ns-hero-sub" style={{ marginTop: 6 }}>
-            Ingen analys laddad — gå till Importera och koppla Fortnox eller ladda upp en fil.
+            Ingen analys laddad — gå till <a href="/data" style={{ color: "var(--accent-text)" }}>Data</a> och koppla Fortnox eller ladda upp en fil.
           </div>
         </div>
       </ProtectedLayout>
@@ -282,284 +129,240 @@ export default function DashboardPage() {
   const totalBudget  = Number(pack.total_budget ?? 0);
   const variance     = comparison ? comparison.totalDiff : (totalActual - totalBudget);
   const variancePct  = comparison ? Math.abs(comparison.totalPct) : (totalBudget !== 0 ? Math.abs(variance / totalBudget) : 0);
-  const kpiRow       = Array.isArray(pack.kpi_summary) ? (pack.kpi_summary[0] ?? {}) : {};
   const topBudget    = Array.isArray(pack.top_budget) ? pack.top_budget : [];
-  const topMom       = Array.isArray(pack.top_mom)    ? pack.top_mom    : [];
   const periodSeries = Array.isArray(pack.period_series) ? pack.period_series : [];
+  const allFlagged   = Array.isArray(pack.all_flagged) ? pack.all_flagged : [];
+  const dataSource   = pack.source === "fortnox" ? "Fortnox" : "Filuppladdning";
 
-  // Sparkline
-  const sparkActuals = periodSeries.slice(-8).map((p: any) => Math.abs(Number(p.actual || 0)));
+  // Salary cost from KPI or top_budget
+  const salaryRow = topBudget.find((x: any) => {
+    const name = String(x.Label || x.Konto || "").toLowerCase();
+    return name.includes("lön") || name.includes("lon") || name.includes("7210");
+  });
+  const salaryCost = salaryRow ? Math.abs(Number(salaryRow.Utfall ?? 0)) : 0;
+  const salaryBudget = salaryRow ? Math.abs(Number(salaryRow.Budget ?? 0)) : 0;
+  const salaryPct = salaryBudget > 0 ? ((salaryCost - salaryBudget) / salaryBudget) : 0;
 
-  // Use comparison data for variance display if available
-  const negVars = comparison
-    ? comparison.negDiffs.map(d => ({ Label: d.label, Konto: d.account, "Vs budget diff": d.diff, "Vs budget %": d.pctDiff }))
-    : topBudget.filter((x: any) => Number(x["Vs budget diff"] ?? 0) < 0).slice(0, 5);
-  const posVars = comparison
-    ? comparison.posDiffs.map(d => ({ Label: d.label, Konto: d.account, "Vs budget diff": d.diff, "Vs budget %": d.pctDiff }))
-    : topMom.filter((x: any) => Number(x["Vs budget diff"] ?? 0) > 0).slice(0, 5);
-  const shownVars = activeVar === "neg" ? negVars : posVars;
+  // Alerts count
+  const critCount = allFlagged.filter((a: any) => String(a.severity || a.Severity || "").toLowerCase().includes("krit")).length;
+  const warnCount = allFlagged.length - critCount;
 
-  // Coverage
-  const withBudget  = topBudget.filter((x: any) => x.Budget && Number(x.Budget) !== 0).length;
-  const totalKonton = topBudget.length || 1;
-  const donePct     = withBudget / totalKonton;
-  const R = 32; const C = 2 * Math.PI * R;
-  const dash = donePct * C;
+  // Chart bars — last 8 periods
+  const chartPeriods = periodSeries.slice(-8);
+  const chartMax = Math.max(...chartPeriods.map((p: any) => Math.abs(Number(p.actual || 0))), 1);
 
-  // Hbar
-  const hbarMax = Math.max(...topBudget.slice(0, 5).flatMap((x: any) => [
-    Math.abs(Number(x.Utfall ?? 0)), Math.abs(Number(x.Budget ?? 0))
-  ]), 1);
+  // Short month label
+  const MONTHS = ["jan","feb","mar","apr","maj","jun","jul","aug","sep","okt","nov","dec"];
+  function shortLabel(period: string) {
+    const p = parsePeriod(period);
+    if (!p) return period.slice(-5);
+    return MONTHS[p.month - 1] || period.slice(-2);
+  }
 
-  // Data source
-  const dataSource = pack.source === "fortnox" ? "Fortnox" : "Filuppladdning";
+  // Compare mode label
+  const compLabel = compareMode === "mom" ? "Month-over-Month" : "Year-over-Year";
 
   return (
     <ProtectedLayout>
       <Header />
-      <div className="ns-page db2-page">
+      <div className="rd-page">
 
-        {/* ── Top header with controls ── */}
-        <div className="db2-header">
+        {/* ── Page header ── */}
+        <div className="rd-header">
           <div>
-            <div className="ns-hero-title">Dashboard</div>
-            <div className="ns-hero-sub">
-              {selectedPeriod} vs {comparePeriodLabel}
-              <span style={{ marginLeft: 8, fontSize: 10, color: "var(--text-faint)" }}>
-                via {dataSource}
-              </span>
+            <div className="rd-title">Dashboard</div>
+            <div className="rd-sub">
+              {selectedPeriod} vs {comparePeriodLabel} · via {dataSource}
             </div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-
-            {/* ── Compare mode toggle ── */}
-            <div style={{
-              display: "flex", borderRadius: 6, overflow: "hidden",
-              border: "0.5px solid var(--border-strong)",
-            }}>
-              {([
-                { key: "mom" as CompareMode, label: "MoM" },
-                { key: "yoy" as CompareMode, label: "YoY" },
-              ]).map(m => (
-                <button key={m.key} onClick={() => setCompareMode(m.key)} style={{
-                  padding: "5px 14px", fontSize: 11, fontWeight: 600, fontFamily: "inherit",
-                  border: "none", cursor: "pointer",
-                  background: compareMode === m.key ? "#6c63ff" : "transparent",
-                  color: compareMode === m.key ? "#fff" : "var(--text-faint)",
-                  transition: "all 0.15s",
-                }}>
-                  {m.label}
-                </button>
-              ))}
+          <div className="rd-controls">
+            <div className="rd-toggle-group">
+              <button className={`rd-toggle-btn${compareMode === "mom" ? " active" : ""}`}
+                onClick={() => setCompareMode("mom")}>MoM</button>
+              <button className={`rd-toggle-btn${compareMode === "yoy" ? " active" : ""}`}
+                onClick={() => setCompareMode("yoy")}>YoY</button>
             </div>
-
-            {/* ── Period selector ── */}
             {periods.length > 1 && (
-              <select
-                value={selectedPeriod}
-                onChange={e => setSelectedPeriod(e.target.value)}
-                style={{
-                  height: 30, padding: "0 10px", borderRadius: 6,
-                  border: "0.5px solid var(--border-strong)",
-                  background: "var(--bg-elevated)", color: "var(--text-secondary)",
-                  fontSize: 12, fontFamily: "inherit", cursor: "pointer",
-                  fontVariantNumeric: "tabular-nums",
-                }}
-              >
-                {periods.map((p: string) => (
-                  <option key={p} value={p}>{p}</option>
-                ))}
+              <select className="rd-period-select" value={selectedPeriod}
+                onChange={e => setSelectedPeriod(e.target.value)}>
+                {periods.map((p: string) => <option key={p} value={p}>{p}</option>)}
               </select>
             )}
-
-            <a href="/variances" className="db2-goto-btn">
-              Avvikelser →
-            </a>
           </div>
         </div>
 
-        {/* ── KPI row ── */}
-        <div className="db2-kpi-row">
-          <KPICard
-            label={`Utfall ${selectedPeriod}`}
-            value={fmtMoney(totalActual)}
-            sub={comparison ? `${compareMode === "mom" ? "Förra mån" : "Samma mån förra år"}: ${fmtMoney(comparison.totalCompare)}` : `Budget ${fmtMoney(totalBudget)}`}
-            trend={comparison ? `${Math.abs(Math.round(comparison.totalPct * 100))}%` : undefined}
-            trendPos={comparison ? comparison.totalPct >= 0 : undefined}
-            sparkValues={sparkActuals}
-          />
-          <KPICard
-            label={compareMode === "mom" ? "Förändring MoM" : "Förändring YoY"}
-            value={comparison ? fmtMoney(comparison.totalDiff) : fmtMoney(variance)}
-            sub={comparison
-              ? `${selectedPeriod} vs ${comparePeriodLabel}`
-              : (variance < 0 ? "Under budget" : "Över budget")
-            }
-            trend={`${Math.round(variancePct * 100)}%`}
-            trendPos={variance >= 0}
-          />
-          <KPICard
-            label="Konton med budget"
-            value={`${withBudget} / ${totalKonton}`}
-            sub={`${Math.round(donePct * 100)}% täckningsgrad`}
-            trendPos={donePct >= 0.8}
-            trend={`${Math.round(donePct * 100)}%`}
-          />
+        {/* ── KPI Row (4 cards) ── */}
+        <div className="rd-kpi-row">
+          <div className="rd-kpi">
+            <div className="rd-kpi-label">Utfall {selectedPeriod.slice(-2) === "12" ? "december" : selectedPeriod}</div>
+            <div className="rd-kpi-value">{fmtMoney(totalActual)}</div>
+            <div className="rd-kpi-sub">Resultaträkning</div>
+          </div>
+
+          <div className="rd-kpi">
+            <div className="rd-kpi-label">Förändring {compareMode === "mom" ? "MoM" : "YoY"}</div>
+            <div>
+              <span className="rd-kpi-value" style={{ color: variance >= 0 ? "var(--green)" : "var(--red)" }}>
+                {variance >= 0 ? "+" : ""}{Math.round(variancePct * 100)}%
+              </span>
+              <span className={`rd-kpi-trend ${variance >= 0 ? "up" : "down"}`}>
+                {variance >= 0 ? "↑" : "↓"} {fmtMoney(Math.abs(variance))}
+              </span>
+            </div>
+            <div className="rd-kpi-sub">vs {comparePeriodLabel.slice(-7)}</div>
+          </div>
+
+          <div className="rd-kpi">
+            <div className="rd-kpi-label">Lönekostnader</div>
+            <div>
+              <span className="rd-kpi-value" style={{ color: salaryCost > salaryBudget ? "var(--red)" : "var(--text-primary)" }}>
+                {fmtMoney(salaryCost)}
+              </span>
+              {salaryBudget > 0 && (
+                <span className={`rd-kpi-trend ${salaryPct > 0 ? "down" : "up"}`}>
+                  ↑ {salaryPct >= 0 ? "+" : ""}{Math.round(salaryPct * 100)}%
+                </span>
+              )}
+            </div>
+            <div className="rd-kpi-sub">Budget: {fmtMoney(salaryBudget)}</div>
+          </div>
+
+          <div className="rd-kpi">
+            <div className="rd-kpi-label">Avvikelser</div>
+            <div>
+              <span className="rd-kpi-value" style={{ color: allFlagged.length > 0 ? "var(--red)" : "var(--text-primary)" }}>
+                {allFlagged.length}
+              </span>
+            </div>
+            <div className="rd-kpi-sub">
+              {critCount > 0 ? `${critCount} kritiska` : ""}
+              {critCount > 0 && warnCount > 0 ? ", " : ""}
+              {warnCount > 0 ? `${warnCount} varningar` : ""}
+              {allFlagged.length === 0 ? "Inga flaggade" : ""}
+            </div>
+          </div>
         </div>
 
-        {/* ── Comparison info banner ── */}
+        {/* ── Compare banner ── */}
         {comparison && (
-          <div style={{
-            padding: "8px 14px", borderRadius: 8, marginBottom: 16,
-            background: "rgba(108,99,255,0.04)", border: "0.5px solid rgba(108,99,255,0.12)",
-            fontSize: 12, color: "var(--text-secondary)",
-            display: "flex", alignItems: "center", gap: 6,
-          }}>
-            <span style={{ color: "#9b94ff", fontWeight: 600 }}>
-              {compareMode === "mom" ? "Month-over-Month" : "Year-over-Year"}:
+          <div className="rd-compare-banner">
+            <span>
+              <span style={{ color: "var(--accent-text)", fontWeight: 600 }}>{compLabel}:</span>{" "}
+              {selectedPeriod} vs {comparePeriodLabel}
             </span>
-            {selectedPeriod} vs {comparePeriodLabel}
-            <span style={{ marginLeft: "auto", color: comparison.totalDiff >= 0 ? "#22c55e" : "#ef4444", fontWeight: 600 }}>
+            <span className="rd-compare-result" style={{ color: comparison.totalDiff >= 0 ? "var(--green)" : "var(--red)" }}>
               {comparison.totalDiff >= 0 ? "+" : ""}{fmtMoney(comparison.totalDiff)} ({comparison.totalPct >= 0 ? "+" : ""}{Math.round(comparison.totalPct * 100)}%)
             </span>
           </div>
         )}
 
-        {/* ── Middle row ── */}
-        <div className="db2-mid-row">
+        {/* ── Content grid: chart left, alerts + AI right ── */}
+        <div className="rd-content-grid">
 
-          {/* Trend chart */}
-          <div className="db2-card db2-trend-card">
-            <div className="db2-card-head">
-              <div>
-                <div className="db2-card-title">Utfall över tid</div>
-                <div className="db2-card-sub">Senaste perioder</div>
-              </div>
-              <div className="db2-trend-val">{fmtMoney(totalActual)}</div>
-            </div>
-            <div className="db2-trend-chart">
-              <PeriodTimeline series={periodSeries} />
-            </div>
-            <div className="db2-trend-labels">
-              {periodSeries.slice(-4).map((p: any, i: number) => (
-                <span key={i} className="db2-trend-label">{String(p.period || "").slice(-5)}</span>
-              ))}
-            </div>
-          </div>
-
-          {/* Top variances */}
-          <div className="db2-card db2-var-card">
-            <div className="db2-card-head">
-              <div className="db2-card-title">
-                {comparison ? `Avvikelser (${compareMode === "mom" ? "MoM" : "YoY"})` : "Avvikelser"}
-              </div>
-              <div className="db2-var-tabs">
-                <button className={`db2-var-tab${activeVar === "neg" ? " active" : ""}`}
-                  onClick={() => setActiveVar("neg")}>
-                  Negativa {negVars.length > 0 && <span className="db2-tab-count">{negVars.length}</span>}
-                </button>
-                <button className={`db2-var-tab${activeVar === "pos" ? " active" : ""}`}
-                  onClick={() => setActiveVar("pos")}>
-                  Positiva {posVars.length > 0 && <span className="db2-tab-count db2-tab-count-pos">{posVars.length}</span>}
-                </button>
-              </div>
-            </div>
-            <div className="db2-var-list">
-              {shownVars.length === 0 ? (
-                <div style={{ fontSize: 12, color: "var(--text-faint)", padding: "12px 0" }}>
-                  {comparison ? `Ingen jämförelsedata för ${comparePeriodLabel}` : "Inga avvikelser att visa"}
-                </div>
-              ) : shownVars.map((x: any, i: number) => (
-                <VarRow key={i}
-                  label={clean(x.Label || x.Konto) || "—"}
-                  konto={clean(x.Konto)}
-                  impact={Number(x["Vs budget diff"] ?? x.diff ?? 0)}
-                  pct={Number(x["Vs budget %"] ?? x.pctDiff ?? 0)}
-                />
-              ))}
-            </div>
-            <a href="/variances" className="db2-var-more">Visa alla avvikelser →</a>
-          </div>
-
-          {/* Coverage donut */}
-          <div className="db2-card db2-donut-card">
-            <div className="db2-card-title">Budgettäckning</div>
-            <div className="db2-card-sub" style={{ marginBottom: 16 }}>Konton med budget</div>
-            <div className="db2-donut-wrap">
-              <svg width="100" height="100" viewBox="0 0 80 80">
-                <circle cx="40" cy="40" r={R} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="8" />
-                <circle cx="40" cy="40" r={R} fill="none" stroke="#6c63ff" strokeWidth="8"
-                  strokeDasharray={`${dash} ${C}`} strokeLinecap="round" transform="rotate(-90 40 40)" />
-                <text x="40" y="36" textAnchor="middle" fontSize="14" fontWeight="600" fill="#f0f0f8">
-                  {Math.round(donePct * 100)}%
-                </text>
-                <text x="40" y="50" textAnchor="middle" fontSize="9" fill="#44445a">täckt</text>
-              </svg>
-            </div>
-            <div className="db2-donut-stats">
-              <div className="db2-donut-stat">
-                <div className="db2-donut-stat-val" style={{ color: "#6c63ff" }}>{withBudget}</div>
-                <div className="db2-donut-stat-label">Med budget</div>
-              </div>
-              <div className="db2-donut-stat">
-                <div className="db2-donut-stat-val" style={{ color: "var(--text-faint)" }}>{totalKonton - withBudget}</div>
-                <div className="db2-donut-stat-label">Utan budget</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ── Bottom row ── */}
-        <div className="db2-bottom-row">
-          {/* Top konton hbar */}
-          <div className="db2-card db2-hbar-card">
-            <div className="db2-card-head">
-              <div>
-                <div className="db2-card-title">Topp konton</div>
-                <div className="db2-card-sub">Utfall vs budget</div>
-              </div>
-              <div className="db2-hbar-legend">
-                <span className="db2-leg-dot" style={{ background: "#6c63ff" }} />
-                <span style={{ fontSize: 11, color: "var(--text-faint)" }}>Utfall</span>
-                <span className="db2-leg-dot" style={{ background: "rgba(255,255,255,0.12)" }} />
-                <span style={{ fontSize: 11, color: "var(--text-faint)" }}>Budget</span>
-              </div>
-            </div>
-            <div className="db2-hbar-list">
-              {topBudget.slice(0, 5).map((x: any, i: number) => (
-                <HBar key={i}
-                  label={clean(x.Label || x.Konto) || "—"}
-                  actual={Number(x.Utfall ?? 0)}
-                  budget={Number(x.Budget ?? 0)}
-                  max={hbarMax}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* AI narrative */}
-          <div className="db2-card db2-ai-card">
-            <div className="db2-ai-icon">
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                <path d="M8 1C8 1,9.5 6.5,15 8C9.5 9.5,8 15,8 15C8 15,6.5 9.5,1 8C6.5 6.5,8 1,8 1Z" fill="#9b94ff" />
-              </svg>
-            </div>
-            <div className="db2-ai-title">AI-sammanfattning</div>
-            <div className="db2-ai-text">
-              {pack.narrative || "Ingen sammanfattning tillgänglig."}
-            </div>
-            {pack.warnings?.length > 0 && (
-              <div className="db2-ai-warnings">
-                {pack.warnings.slice(0, 2).map((w: string, i: number) => (
-                  <div key={i} className="db2-ai-warning">
-                    <span className="db2-warn-dot" />
-                    {w}
+          {/* ── Chart card ── */}
+          <div className="rd-card">
+            <div className="rd-card-title">Utfall över tid</div>
+            <div className="rd-card-sub">Resultaträkning senaste {chartPeriods.length} perioder</div>
+            <div className="rd-chart-area">
+              {chartPeriods.map((p: any, i: number) => {
+                const val = Math.abs(Number(p.actual || 0));
+                const h = chartMax > 0 ? (val / chartMax) * 100 : 2;
+                const isLast = i === chartPeriods.length - 1;
+                return (
+                  <div key={i} className="rd-chart-bar-group">
+                    <div className="rd-chart-bar"
+                      style={{
+                        height: `${Math.max(h, 2)}%`,
+                        background: isLast ? "var(--accent)" : "var(--accent)",
+                        opacity: isLast ? 1 : 0.6,
+                        boxShadow: isLast ? "0 0 12px rgba(108,99,255,0.3)" : "none",
+                      }} />
+                    <div className="rd-chart-label"
+                      style={{
+                        color: isLast ? "var(--accent-text)" : "var(--text-faint)",
+                        fontWeight: isLast ? 500 : 400,
+                      }}>
+                      {shortLabel(String(p.period || ""))}
+                    </div>
                   </div>
-                ))}
+                );
+              })}
+            </div>
+            <div className="rd-chart-legend">
+              <div className="rd-chart-legend-item">
+                <div className="rd-chart-legend-dot" style={{ background: "var(--accent)" }} />
+                Utfall
+              </div>
+              <div className="rd-chart-legend-item">
+                <div className="rd-chart-legend-dot" style={{ background: "rgba(255,255,255,0.08)" }} />
+                Budget
+              </div>
+            </div>
+          </div>
+
+          {/* ── Right column: alerts + AI ── */}
+          <div>
+            {/* Alerts */}
+            <div className="rd-alerts-section">
+              <div className="rd-alerts-title-row">
+                <span className="rd-alerts-title">Kräver uppmärksamhet</span>
+                <a href="/variances" className="rd-alerts-link">Visa alla →</a>
+              </div>
+
+              {allFlagged.length === 0 ? (
+                <div style={{ fontSize: 12, color: "var(--text-faint)", padding: "16px 0" }}>
+                  Inga avvikelser att visa.
+                </div>
+              ) : allFlagged.slice(0, 4).map((a: any, i: number) => {
+                const sev = String(a.severity || a.Severity || "").toLowerCase();
+                const isCrit = sev.includes("krit") || sev.includes("crit");
+                const impact = Number(a.impact ?? a["Vs budget diff"] ?? a.diff ?? 0);
+                const headline = a.headline || a.Label || a.Konto || "Avvikelse";
+                const meta = a.meta || `${clean(a.Konto || a.account || "")}`;
+                const trend = a.trend || (a.escalating ? "Eskalerar" : "");
+
+                return (
+                  <div key={i} className="rd-alert-item">
+                    <div className={`rd-alert-dot ${isCrit ? "critical" : "warning"}`} />
+                    <div className="rd-alert-content">
+                      <div className="rd-alert-headline">{headline}</div>
+                      <div className="rd-alert-meta">
+                        {meta}{trend ? ` · ${trend}` : ""}
+                      </div>
+                    </div>
+                    <span className={`rd-alert-sev ${isCrit ? "critical" : "warning"}`}>
+                      {isCrit ? "Kritisk" : "Varning"}
+                    </span>
+                    <span className="rd-alert-value neg">
+                      {impact >= 0 ? "+" : ""}{fmtMoney(impact)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* AI narrative */}
+            {pack.narrative && (
+              <div className="rd-ai-card">
+                <div className="rd-ai-icon">✦</div>
+                <div className="rd-ai-title">AI-sammanfattning</div>
+                <div className="rd-ai-text">{pack.narrative}</div>
               </div>
             )}
           </div>
         </div>
+
+        {/* ── Export CTA ── */}
+        <div className="rd-export-row">
+          <div className="rd-export-text">
+            <strong>Redo att presentera?</strong> Exportera en rapport baserad på din data och AI-analys.
+          </div>
+          <div className="rd-export-btns">
+            <a href="/export" className="rd-export-btn primary">Exportera PPTX</a>
+            <a href="/export" className="rd-export-btn secondary">DOCX</a>
+          </div>
+        </div>
+
       </div>
     </ProtectedLayout>
   );
