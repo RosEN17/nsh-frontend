@@ -511,7 +511,7 @@ export default function ConnectPage() {
   return (
     <ProtectedLayout>
       <style>{`@keyframes nsSpin { to { transform: rotate(360deg); } }`}</style>
-      <Header reportCount={0} />
+      <Header />
 
       <div className="ns-page">
         <div className="ns-hero">
