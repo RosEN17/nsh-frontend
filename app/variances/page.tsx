@@ -405,7 +405,7 @@ export default function VariancesPage() {
   if (!pack) {
     return (
       <ProtectedLayout>
-        <Header reportCount={0} />
+        <Header />
         <div className="ns-page">
           <div className="ns-hero-title">Avvikelser</div>
           <div className="ns-hero-sub" style={{ marginTop: 6 }}>
@@ -421,7 +421,7 @@ export default function VariancesPage() {
       <style>{`
         @keyframes nsPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
       `}</style>
-      <Header reportCount={reportItems.length} />
+      <Header />
       <div className="ns-page">
 
         {/* ── HERO ── */}
