@@ -262,7 +262,7 @@ export default function DashboardPage() {
   if (!pack) {
     return (
       <ProtectedLayout>
-        <Header reportCount={0} />
+        <Header />
         <div className="ns-page">
           <div className="ns-hero-title">Dashboard</div>
           <div className="ns-hero-sub" style={{ marginTop: 6 }}>
@@ -316,7 +316,7 @@ export default function DashboardPage() {
 
   return (
     <ProtectedLayout>
-      <Header reportCount={reportItems.length} />
+      <Header />
       <div className="ns-page db2-page">
 
         {/* ── Top header with controls ── */}
