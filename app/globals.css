@@ -22,7 +22,7 @@
   --red-soft:rgba(239,68,68,0.1);
   --amber:#d4a017;
   --amber-soft:rgba(245,158,11,0.1);
-  --font:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --font:'DM Sans',-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   --radius:6px;
   --radius-lg:10px;
 }
