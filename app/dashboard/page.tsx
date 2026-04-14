@@ -280,7 +280,7 @@ export default function DashboardPage() {
             {chartData.bars.length > 0 ? (
               <>
                 <div className="rd-chart-area">
-                  {chartData.bars.map((bar, i) => {
+                  {chartData.bars.map((bar: { period: string; value: number }, i: number) => {
                     const h = chartData.max > 0 ? (bar.value / chartData.max) * 100 : 2;
                     const isLast = i === chartData.bars.length - 1;
                     return (
