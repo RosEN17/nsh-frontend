@@ -281,13 +281,14 @@ export default function DashboardPage() {
               <>
                 <div className="rd-chart-area">
                   {chartData.bars.map((bar: { period: string; value: number }, i: number) => {
-                    const h = chartData.max > 0 ? (bar.value / chartData.max) * 100 : 2;
+                    const barAreaHeight = 150; // px, matches rd-chart-area height minus padding
+                    const h = chartData.max > 0 ? (bar.value / chartData.max) * barAreaHeight : 3;
                     const isLast = i === chartData.bars.length - 1;
                     return (
                       <div key={i} className="rd-chart-bar-group">
                         <div className="rd-chart-bar"
                           style={{
-                            height: `${Math.max(h, 3)}%`,
+                            height: `${Math.max(h, 3)}px`,
                             background: "var(--accent)",
                             opacity: isLast ? 1 : 0.6,
                             boxShadow: isLast ? "0 0 12px rgba(108,99,255,0.3)" : "none",
