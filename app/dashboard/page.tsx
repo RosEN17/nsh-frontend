@@ -93,7 +93,7 @@ function buildChartData(pack: any) {
       period: String(p.period || ""),
       value: Math.abs(Number(p.actual || 0)),
     }));
-    const maxVal = Math.max(...vals.map(v => v.value), 1);
+    const maxVal = Math.max(...vals.map((v: { period: string; value: number }) => v.value), 1);
 
     // If the max value is meaningful (> 100), use period_series
     if (maxVal > 100) {
@@ -110,9 +110,9 @@ function buildChartData(pack: any) {
       byPeriod[p] = (byPeriod[p] || 0) + Math.abs(Number(r.actual || 0));
     }
     const sorted = Object.entries(byPeriod)
-      .sort(([a], [b]) => a.localeCompare(b))
+      .sort(([a]: [string, number], [b]: [string, number]) => a.localeCompare(b))
       .slice(-8);
-    const vals = sorted.map(([period, value]) => ({ period, value }));
+    const vals = sorted.map(([period, value]: [string, number]) => ({ period, value }));
     const maxVal = Math.max(...vals.map(v => v.value), 1);
     return { bars: vals, max: maxVal, label: "Totalt omsättning" };
   }
