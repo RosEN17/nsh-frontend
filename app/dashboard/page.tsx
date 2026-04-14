@@ -9,7 +9,7 @@ function fmtMoney(n: number): string {
   const abs = Math.abs(n);
   if (abs >= 1_000_000) return `${(n / 1_000_000).toFixed(1)} MSEK`;
   if (abs >= 1_000)     return `${Math.round(n / 1_000)} tkr`;
-  return `${Math.round(n)}`;
+  return `${Math.round(n)} kr`;
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -79,12 +79,54 @@ function computeComparison(detailedRows: any[], selectedPeriod: string, compareP
 
 
 /* ═══════════════════════════════════════════════════════════════════
+   CHART DATA — builds usable chart values from period_series
+   or falls back to detailed_rows if period_series has near-zero values
+   ═══════════════════════════════════════════════════════════════════ */
+
+function buildChartData(pack: any) {
+  const periodSeries = Array.isArray(pack.period_series) ? pack.period_series : [];
+  const detailedRows = Array.isArray(pack.detailed_rows) ? pack.detailed_rows : [];
+
+  // First try period_series
+  if (periodSeries.length > 0) {
+    const vals = periodSeries.slice(-8).map((p: any) => ({
+      period: String(p.period || ""),
+      value: Math.abs(Number(p.actual || 0)),
+    }));
+    const maxVal = Math.max(...vals.map(v => v.value), 1);
+
+    // If the max value is meaningful (> 100), use period_series
+    if (maxVal > 100) {
+      return { bars: vals, max: maxVal, label: "Resultaträkning" };
+    }
+  }
+
+  // Fallback: compute from detailed_rows
+  if (detailedRows.length > 0) {
+    const byPeriod: Record<string, number> = {};
+    for (const r of detailedRows) {
+      const p = String(r.period || "");
+      if (!p) continue;
+      byPeriod[p] = (byPeriod[p] || 0) + Math.abs(Number(r.actual || 0));
+    }
+    const sorted = Object.entries(byPeriod)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .slice(-8);
+    const vals = sorted.map(([period, value]) => ({ period, value }));
+    const maxVal = Math.max(...vals.map(v => v.value), 1);
+    return { bars: vals, max: maxVal, label: "Totalt omsättning" };
+  }
+
+  return { bars: [], max: 1, label: "Ingen data" };
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
    MAIN PAGE
    ═══════════════════════════════════════════════════════════════════ */
 
 export default function DashboardPage() {
   const pack = getPack();
-  const reportItems = getReportItems();
 
   const [compareMode, setCompareMode] = useState<CompareMode>("mom");
 
@@ -129,27 +171,15 @@ export default function DashboardPage() {
   const totalBudget  = Number(pack.total_budget ?? 0);
   const variance     = comparison ? comparison.totalDiff : (totalActual - totalBudget);
   const variancePct  = comparison ? Math.abs(comparison.totalPct) : (totalBudget !== 0 ? Math.abs(variance / totalBudget) : 0);
-  const topBudget    = Array.isArray(pack.top_budget) ? pack.top_budget : [];
-  const periodSeries = Array.isArray(pack.period_series) ? pack.period_series : [];
   const allFlagged   = Array.isArray(pack.all_flagged) ? pack.all_flagged : [];
   const dataSource   = pack.source === "fortnox" ? "Fortnox" : "Filuppladdning";
-
-  // Salary cost from KPI or top_budget
-  const salaryRow = topBudget.find((x: any) => {
-    const name = String(x.Label || x.Konto || "").toLowerCase();
-    return name.includes("lön") || name.includes("lon") || name.includes("7210");
-  });
-  const salaryCost = salaryRow ? Math.abs(Number(salaryRow.Utfall ?? 0)) : 0;
-  const salaryBudget = salaryRow ? Math.abs(Number(salaryRow.Budget ?? 0)) : 0;
-  const salaryPct = salaryBudget > 0 ? ((salaryCost - salaryBudget) / salaryBudget) : 0;
 
   // Alerts count
   const critCount = allFlagged.filter((a: any) => String(a.severity || a.Severity || "").toLowerCase().includes("krit")).length;
   const warnCount = allFlagged.length - critCount;
 
-  // Chart bars — last 8 periods
-  const chartPeriods = periodSeries.slice(-8);
-  const chartMax = Math.max(...chartPeriods.map((p: any) => Math.abs(Number(p.actual || 0))), 1);
+  // Chart data with fallback
+  const chartData = buildChartData(pack);
 
   // Short month label
   const MONTHS = ["jan","feb","mar","apr","maj","jun","jul","aug","sep","okt","nov","dec"];
@@ -159,7 +189,6 @@ export default function DashboardPage() {
     return MONTHS[p.month - 1] || period.slice(-2);
   }
 
-  // Compare mode label
   const compLabel = compareMode === "mom" ? "Month-over-Month" : "Year-over-Year";
 
   return (
@@ -191,12 +220,12 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* ── KPI Row (4 cards) ── */}
-        <div className="rd-kpi-row">
+        {/* ── KPI Row (3 cards) ── */}
+        <div className="rd-kpi-row" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
           <div className="rd-kpi">
-            <div className="rd-kpi-label">Utfall {selectedPeriod.slice(-2) === "12" ? "december" : selectedPeriod}</div>
+            <div className="rd-kpi-label">Resultat {selectedPeriod}</div>
             <div className="rd-kpi-value">{fmtMoney(totalActual)}</div>
-            <div className="rd-kpi-sub">Resultaträkning</div>
+            <div className="rd-kpi-sub">Budget: {fmtMoney(totalBudget)}</div>
           </div>
 
           <div className="rd-kpi">
@@ -209,22 +238,7 @@ export default function DashboardPage() {
                 {variance >= 0 ? "↑" : "↓"} {fmtMoney(Math.abs(variance))}
               </span>
             </div>
-            <div className="rd-kpi-sub">vs {comparePeriodLabel.slice(-7)}</div>
-          </div>
-
-          <div className="rd-kpi">
-            <div className="rd-kpi-label">Lönekostnader</div>
-            <div>
-              <span className="rd-kpi-value" style={{ color: salaryCost > salaryBudget ? "var(--red)" : "var(--text-primary)" }}>
-                {fmtMoney(salaryCost)}
-              </span>
-              {salaryBudget > 0 && (
-                <span className={`rd-kpi-trend ${salaryPct > 0 ? "down" : "up"}`}>
-                  ↑ {salaryPct >= 0 ? "+" : ""}{Math.round(salaryPct * 100)}%
-                </span>
-              )}
-            </div>
-            <div className="rd-kpi-sub">Budget: {fmtMoney(salaryBudget)}</div>
+            <div className="rd-kpi-sub">vs {comparePeriodLabel}</div>
           </div>
 
           <div className="rd-kpi">
@@ -262,42 +276,49 @@ export default function DashboardPage() {
           {/* ── Chart card ── */}
           <div className="rd-card">
             <div className="rd-card-title">Utfall över tid</div>
-            <div className="rd-card-sub">Resultaträkning senaste {chartPeriods.length} perioder</div>
-            <div className="rd-chart-area">
-              {chartPeriods.map((p: any, i: number) => {
-                const val = Math.abs(Number(p.actual || 0));
-                const h = chartMax > 0 ? (val / chartMax) * 100 : 2;
-                const isLast = i === chartPeriods.length - 1;
-                return (
-                  <div key={i} className="rd-chart-bar-group">
-                    <div className="rd-chart-bar"
-                      style={{
-                        height: `${Math.max(h, 2)}%`,
-                        background: isLast ? "var(--accent)" : "var(--accent)",
-                        opacity: isLast ? 1 : 0.6,
-                        boxShadow: isLast ? "0 0 12px rgba(108,99,255,0.3)" : "none",
-                      }} />
-                    <div className="rd-chart-label"
-                      style={{
-                        color: isLast ? "var(--accent-text)" : "var(--text-faint)",
-                        fontWeight: isLast ? 500 : 400,
-                      }}>
-                      {shortLabel(String(p.period || ""))}
-                    </div>
+            <div className="rd-card-sub">{chartData.label} · senaste {chartData.bars.length} perioder</div>
+            {chartData.bars.length > 0 ? (
+              <>
+                <div className="rd-chart-area">
+                  {chartData.bars.map((bar, i) => {
+                    const h = chartData.max > 0 ? (bar.value / chartData.max) * 100 : 2;
+                    const isLast = i === chartData.bars.length - 1;
+                    return (
+                      <div key={i} className="rd-chart-bar-group">
+                        <div className="rd-chart-bar"
+                          style={{
+                            height: `${Math.max(h, 3)}%`,
+                            background: "var(--accent)",
+                            opacity: isLast ? 1 : 0.6,
+                            boxShadow: isLast ? "0 0 12px rgba(108,99,255,0.3)" : "none",
+                          }} />
+                        <div className="rd-chart-label"
+                          style={{
+                            color: isLast ? "var(--accent-text)" : "var(--text-faint)",
+                            fontWeight: isLast ? 500 : 400,
+                          }}>
+                          {shortLabel(bar.period)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="rd-chart-legend">
+                  <div className="rd-chart-legend-item">
+                    <div className="rd-chart-legend-dot" style={{ background: "var(--accent)" }} />
+                    Utfall
                   </div>
-                );
-              })}
-            </div>
-            <div className="rd-chart-legend">
-              <div className="rd-chart-legend-item">
-                <div className="rd-chart-legend-dot" style={{ background: "var(--accent)" }} />
-                Utfall
+                  <div className="rd-chart-legend-item">
+                    <div className="rd-chart-legend-dot" style={{ background: "rgba(255,255,255,0.08)" }} />
+                    Budget
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div style={{ height: 180, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "var(--text-faint)" }}>
+                Ingen perioddata tillgänglig
               </div>
-              <div className="rd-chart-legend-item">
-                <div className="rd-chart-legend-dot" style={{ background: "rgba(255,255,255,0.08)" }} />
-                Budget
-              </div>
-            </div>
+            )}
           </div>
 
           {/* ── Right column: alerts + AI ── */}
