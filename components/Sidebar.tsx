@@ -22,10 +22,10 @@ function NordsheetLogo() {
 
 function SbIcon({ name }: { name: string }) {
   const icons: Record<string, JSX.Element> = {
+    data:      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2"><path d="M8 2v8M5 7l3 3 3-3" strokeLinecap="round" strokeLinejoin="round"/><path d="M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2" strokeLinecap="round"/></svg>,
     dashboard: <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2"><rect x="1" y="1" width="6" height="6" rx="1.5"/><rect x="9" y="1" width="6" height="6" rx="1.5"/><rect x="1" y="9" width="6" height="6" rx="1.5"/><rect x="9" y="9" width="6" height="6" rx="1.5"/></svg>,
     alerts:    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 1C8 1,9.5 6.5,15 8C9.5 9.5,8 15,8 15C8 15,6.5 9.5,1 8C6.5 6.5,8 1,8 1Z" fill="currentColor"/></svg>,
     reports:   <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2"><path d="M3 2h7l3 3v9a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M10 2v3h3M5 8h6M5 11h4" strokeLinecap="round"/></svg>,
-    data:      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2"><path d="M8 2v8M5 7l3 3 3-3" strokeLinecap="round" strokeLinejoin="round"/><path d="M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2" strokeLinecap="round"/></svg>,
     settings:  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41" strokeLinecap="round"/></svg>,
     logout:    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2"><path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h3M10 11l3-3-3-3M13 8H6" strokeLinecap="round" strokeLinejoin="round"/></svg>,
   };
@@ -68,24 +68,11 @@ export default function Sidebar() {
 
       <div className="sb-divider" />
 
-      <div className="sb-section-label">Analys</div>
       <nav className="sb-nav">
+        <SbLink href="/data"      icon="data"      label="Data" />
         <SbLink href="/dashboard" icon="dashboard" label="Dashboard" />
-        <SbLink href="/variances" icon="alerts" label="Avvikelser" badge={alertCount > 0 ? alertCount : undefined} />
-      </nav>
-
-      <div className="sb-divider" />
-
-      <div className="sb-section-label">Export</div>
-      <nav className="sb-nav">
-        <SbLink href="/export" icon="reports" label="Rapport" />
-      </nav>
-
-      <div className="sb-divider" />
-
-      <div className="sb-section-label">Importera</div>
-      <nav className="sb-nav">
-        <SbLink href="/data" icon="data" label="Data" />
+        <SbLink href="/variances" icon="alerts"    label="Avvikelser" badge={alertCount > 0 ? alertCount : undefined} />
+        <SbLink href="/export"    icon="reports"   label="Rapport" />
       </nav>
 
       <div className="sb-bottom">
