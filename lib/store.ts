@@ -1,0 +1,35 @@
+// Spara kalkyler i localStorage
+const ESTIMATES_KEY = "byggkalk_estimates";
+
+export interface SavedEstimate {
+  id: string;
+  created: string;
+  description: string;
+  job_type?: string;
+  total_inc_vat: number;
+  customer_pays: number;
+  data: any;
+}
+
+export function getEstimates(): SavedEstimate[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(ESTIMATES_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+export function saveEstimate(est: SavedEstimate) {
+  const all = getEstimates();
+  all.unshift(est);
+  localStorage.setItem(ESTIMATES_KEY, JSON.stringify(all.slice(0, 100)));
+}
+
+export function deleteEstimate(id: string) {
+  const all = getEstimates().filter(e => e.id !== id);
+  localStorage.setItem(ESTIMATES_KEY, JSON.stringify(all));
+}
+
+export function clearEstimates() {
+  localStorage.removeItem(ESTIMATES_KEY);
+}
