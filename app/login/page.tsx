@@ -4,27 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
-function NordsheetStar({ size = 52 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 200 200" fill="none">
-      <path
-        d="M100 4 C100 4,118 82,196 100 C118 118,100 196,100 196 C100 196,82 118,4 100 C82 82,100 4,100 4Z"
-        fill="white"
-      />
-      <path
-        d="M100 52 C100 52,112 88,148 100 C112 112,100 148,100 148 C100 148,88 112,52 100 C88 88,100 52,100 52Z"
-        fill="#0a0a0f"
-      />
-    </svg>
-  );
-}
-
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail]       = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError]       = useState("");
-  const [loading, setLoading]   = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -32,37 +17,38 @@ export default function LoginPage() {
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
-    if (error) {
-      setError("Fel e-post eller lösenord. Försök igen.");
-      return;
-    }
-    router.push("/connect");
+    if (error) { setError("Fel e-post eller lösenord."); return; }
+    router.push("/dashboard");
   }
 
   return (
     <div className="login-shell">
-      {/* Left panel */}
       <div className="login-left">
         <div className="login-left-bg" />
         <div className="login-left-content">
           <div className="login-left-logo">
-            <NordsheetStar size={28} />
+            <svg width="32" height="32" viewBox="0 0 100 100" fill="none">
+              <rect x="8" y="40" width="20" height="52" rx="3" fill="#f59e0b"/>
+              <rect x="34" y="24" width="20" height="68" rx="3" fill="#fbbf24"/>
+              <rect x="60" y="8" width="20" height="84" rx="3" fill="#f59e0b"/>
+              <path d="M4 92h80" stroke="#f59e0b" strokeWidth="3" strokeLinecap="round"/>
+            </svg>
             <div className="login-left-wordmark">
-              <span className="wm-nord">NORD</span>
-              <span className="wm-sheet">SHEET</span>
+              <span className="wm-nord">BYGG</span>
+              <span className="wm-sheet">KALK</span>
             </div>
           </div>
           <div className="login-tagline">
-            Finance intelligence<br />
-            <span className="login-tagline-muted">for the modern</span><br />
-            controller.
+            AI-driven<br />
+            <span className="login-tagline-muted">kalkylering för</span><br />
+            hantverkare.
           </div>
           <div className="login-features">
             {[
-              "AI-driven variansanalys",
-              "Automatisk kolumnmapping",
-              "Export till PPTX & DOCX",
-              "Realtids AI Copilot",
+              "Beskriv jobbet – AI räknar",
+              "Svenska materialpriser",
+              "ROT-avdrag automatiskt",
+              "Offert på minuter, inte timmar",
             ].map((f) => (
               <div key={f} className="login-feat">
                 <span className="login-feat-dot" />
@@ -73,57 +59,36 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Right panel */}
       <div className="login-right">
         <div className="login-card">
           <div className="login-logo-wrap">
-            <NordsheetStar size={52} />
+            <svg width="52" height="52" viewBox="0 0 100 100" fill="none">
+              <rect x="8" y="40" width="20" height="52" rx="3" fill="#f59e0b"/>
+              <rect x="34" y="24" width="20" height="68" rx="3" fill="#fbbf24"/>
+              <rect x="60" y="8" width="20" height="84" rx="3" fill="#f59e0b"/>
+              <path d="M4 92h80" stroke="#f59e0b" strokeWidth="3" strokeLinecap="round"/>
+            </svg>
           </div>
-
-          <div className="login-heading">Välkommen tillbaka</div>
-          <div className="login-sub">Logga in på ditt Nordsheet-konto</div>
-
+          <div className="login-heading">Välkommen till ByggKalk</div>
+          <div className="login-sub">Logga in för att börja kalkylera</div>
           <form onSubmit={handleLogin} className="login-form">
             <div className="login-field">
               <label className="login-label">E-POSTADRESS</label>
-              <input
-                className="login-input"
-                type="email"
-                placeholder="namn@foretag.se"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-              />
+              <input className="login-input" type="email" placeholder="namn@foretag.se" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
             </div>
-
             <div className="login-field">
               <label className="login-label">LÖSENORD</label>
-              <input
-                className="login-input"
-                type="password"
-                placeholder="••••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete="current-password"
-              />
+              <input className="login-input" type="password" placeholder="••••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" />
             </div>
-
             {error && <div className="login-error">{error}</div>}
-
             <button className="login-btn" type="submit" disabled={loading}>
               {loading ? "Loggar in..." : "Logga in"}
             </button>
           </form>
-
-          <div className="login-footer">
-            Inget konto? Kontakta din administratör.
-          </div>
-
+          <div className="login-footer">Inget konto? Kontakta oss för tillgång.</div>
           <div className="login-badges">
             <span className="login-badge">256-bit kryptering</span>
-            <span className="login-badge">GDPR-säker</span>
+            <span className="login-badge">GDPR</span>
             <span className="login-badge">Supabase Auth</span>
           </div>
         </div>
