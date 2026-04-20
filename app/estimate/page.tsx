@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import ProtectedLayout from "@/components/ProtectedLayout";
 import Header from "@/components/Header";
 import { createEstimate } from "@/lib/api";
-import { saveEstimate } from "@/lib/store";
+import { saveEstimate, getEstimates } from "@/lib/store";
 
 const JOB_TYPES = [
   { id: "badrum", label: "Badrum", icon: "🚿" },
@@ -23,7 +24,98 @@ function fmtKr(n: number): string {
   return new Intl.NumberFormat("sv-SE", { style: "decimal", maximumFractionDigits: 0 }).format(n) + " kr";
 }
 
+function getSettings() {
+  if (typeof window === "undefined") return {};
+  try { return JSON.parse(localStorage.getItem("byggkalk_settings") || "{}"); } catch { return {}; }
+}
+
+function generateQuoteHTML(result: any, settings: any) {
+  const t = result.totals || {};
+  const today = new Date().toLocaleDateString("sv-SE");
+  const validUntil = new Date(Date.now() + 30 * 86400000).toLocaleDateString("sv-SE");
+
+  let rowsHTML = "";
+  for (const cat of result.categories || []) {
+    rowsHTML += `<tr style="background:#f8f8f8"><td colspan="5" style="padding:10px 12px;font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid #e5e5e5">${cat.name}</td></tr>`;
+    for (const row of cat.rows || []) {
+      const source = row.type === "labor" ? "Egen timpris" : "Uppskattat marknadspris";
+      rowsHTML += `<tr>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px">${row.description}${row.note ? `<br><span style="font-size:11px;color:#999">${row.note}</span>` : ""}<br><span style="font-size:10px;color:#aaa;font-style:italic">Källa: ${source}</span></td>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:12px;color:#888;text-align:center">${row.unit}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px;text-align:right;font-family:monospace">${row.quantity}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px;text-align:right;font-family:monospace">${fmtKr(row.unit_price)}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px;text-align:right;font-family:monospace;font-weight:600">${fmtKr(row.total)}</td>
+      </tr>`;
+    }
+    rowsHTML += `<tr><td colspan="4" style="padding:8px 12px;text-align:right;font-weight:600;font-size:12px;border-bottom:2px solid #ddd">Delsumma ${cat.name}</td><td style="padding:8px 12px;text-align:right;font-weight:700;font-size:13px;font-family:monospace;border-bottom:2px solid #ddd">${fmtKr(cat.subtotal)}</td></tr>`;
+  }
+
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Offert - ${result.job_title}</title>
+<style>body{font-family:'Segoe UI',Arial,sans-serif;max-width:800px;margin:0 auto;padding:40px;color:#222;font-size:14px;line-height:1.5}
+@media print{body{padding:20px}}</style></head><body>
+<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:30px;padding-bottom:20px;border-bottom:3px solid #f59e0b">
+  <div>
+    <div style="font-size:24px;font-weight:800;color:#1a1a1a">${settings.company_name || "Företagsnamn"}</div>
+    <div style="font-size:12px;color:#888;margin-top:4px">
+      ${settings.org_number ? `Org.nr: ${settings.org_number}` : ""}
+      ${settings.phone ? ` · Tel: ${settings.phone}` : ""}
+      ${settings.email ? ` · ${settings.email}` : ""}
+      ${settings.address ? `<br>${settings.address}` : ""}
+    </div>
+  </div>
+  <div style="text-align:right">
+    <div style="font-size:20px;font-weight:700;color:#f59e0b">OFFERT</div>
+    <div style="font-size:12px;color:#888;margin-top:4px">Datum: ${today}</div>
+    <div style="font-size:12px;color:#888">Giltig t.o.m: ${validUntil}</div>
+  </div>
+</div>
+
+<div style="margin-bottom:24px">
+  <div style="font-size:18px;font-weight:700;margin-bottom:6px">${result.job_title || "Kalkyl"}</div>
+  <div style="font-size:13px;color:#666">${result.job_summary || ""}</div>
+</div>
+
+<table style="width:100%;border-collapse:collapse;margin-bottom:24px">
+<thead><tr style="background:#1a1a1a;color:white">
+  <th style="padding:10px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">Post</th>
+  <th style="padding:10px 12px;text-align:center;font-size:11px;text-transform:uppercase">Enhet</th>
+  <th style="padding:10px 12px;text-align:right;font-size:11px;text-transform:uppercase">Antal</th>
+  <th style="padding:10px 12px;text-align:right;font-size:11px;text-transform:uppercase">À-pris</th>
+  <th style="padding:10px 12px;text-align:right;font-size:11px;text-transform:uppercase">Summa</th>
+</tr></thead>
+<tbody>${rowsHTML}</tbody>
+</table>
+
+<div style="max-width:350px;margin-left:auto">
+  <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:#666"><span>Material</span><span style="font-family:monospace">${fmtKr(t.material_total || 0)}</span></div>
+  <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:#666"><span>Arbete</span><span style="font-family:monospace">${fmtKr(t.labor_total || 0)}</span></div>
+  ${t.margin_amount ? `<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:#666"><span>Påslag (${result.meta?.margin_pct || 15}%)</span><span style="font-family:monospace">${fmtKr(t.margin_amount)}</span></div>` : ""}
+  <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:#666"><span>Moms (25%)</span><span style="font-family:monospace">${fmtKr(t.vat || 0)}</span></div>
+  <div style="display:flex;justify-content:space-between;padding:12px 0;font-size:18px;font-weight:800;border-top:2px solid #1a1a1a;margin-top:8px"><span>Totalt inkl. moms</span><span style="font-family:monospace">${fmtKr(t.total_inc_vat || 0)}</span></div>
+  ${t.rot_deduction ? `
+  <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:#16a34a"><span>ROT-avdrag (30% på arbete)</span><span style="font-family:monospace">−${fmtKr(t.rot_deduction)}</span></div>
+  <div style="display:flex;justify-content:space-between;padding:12px 0;font-size:18px;font-weight:800;color:#16a34a;border-top:2px solid #16a34a;margin-top:4px"><span>Att betala</span><span style="font-family:monospace">${fmtKr(t.customer_pays || t.total_inc_vat || 0)}</span></div>
+  ` : ""}
+</div>
+
+${result.estimated_days ? `<div style="margin-top:20px;padding:12px 16px;background:#f0f9ff;border-left:3px solid #3b82f6;font-size:13px;color:#1e40af">Uppskattad tidsåtgång: ca ${result.estimated_days} arbetsdagar</div>` : ""}
+
+${(result.warnings || []).length > 0 ? `<div style="margin-top:16px;padding:12px 16px;background:#fffbeb;border-left:3px solid #f59e0b;font-size:12px;color:#92400e"><strong>Observera:</strong><ul style="margin:6px 0 0 16px">${result.warnings.map((w: string) => `<li>${w}</li>`).join("")}</ul></div>` : ""}
+
+<div style="margin-top:40px;padding-top:20px;border-top:1px solid #eee">
+  <div style="font-size:11px;color:#aaa;text-align:center">
+    Prisuppgifter baseras på uppskattade marknadspriser och kan variera. Slutligt pris kan justeras vid oförutsedda förhållanden.
+    <br>Offerten är giltig i 30 dagar från ovanstående datum.
+    ${settings.company_name ? `<br><br>${settings.company_name}${settings.org_number ? ` · Org.nr: ${settings.org_number}` : ""}` : ""}
+  </div>
+</div>
+</body></html>`;
+}
+
 export default function EstimatePage() {
+  const searchParams = useSearchParams();
+  const viewId = searchParams.get("view");
+
   const [step, setStep] = useState<"input" | "loading" | "result">("input");
   const [jobType, setJobType] = useState("");
   const [description, setDescription] = useState("");
@@ -36,6 +128,30 @@ export default function EstimatePage() {
   const [error, setError] = useState("");
   const [loadingMsg, setLoadingMsg] = useState("");
   const [saved, setSaved] = useState(false);
+  const [showSources, setShowSources] = useState(false);
+
+  // Load saved estimate if viewing
+  useEffect(() => {
+    if (viewId) {
+      const estimates = getEstimates();
+      const found = estimates.find(e => e.id === viewId);
+      if (found) {
+        setResult(found.data);
+        setDescription(found.description);
+        setJobType(found.job_type || "");
+        setSaved(true);
+        setStep("result");
+      }
+    }
+  }, [viewId]);
+
+  // Load default settings
+  useEffect(() => {
+    const s = getSettings();
+    if (s.hourly_rate) setHourlyRate(String(s.hourly_rate));
+    if (s.margin_pct !== undefined) setMarginPct(String(s.margin_pct));
+    if (s.include_rot !== undefined) setIncludeRot(s.include_rot);
+  }, []);
 
   const loadingMessages = [
     "Analyserar jobbeskrivningen...",
@@ -91,6 +207,20 @@ export default function EstimatePage() {
     setSaved(true);
   }
 
+  function handleDownloadQuote() {
+    if (!result) return;
+    const settings = getSettings();
+    const html = generateQuoteHTML(result, settings);
+    const blob = new Blob([html], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    const w = window.open(url, "_blank");
+    if (w) {
+      w.onload = () => {
+        setTimeout(() => { w.print(); }, 500);
+      };
+    }
+  }
+
   function handleReset() {
     setStep("input");
     setResult(null);
@@ -98,6 +228,14 @@ export default function EstimatePage() {
     setJobType("");
     setAreaSqm("");
     setSaved(false);
+    setShowSources(false);
+    window.history.replaceState(null, "", "/estimate");
+  }
+
+  function getSourceLabel(row: any): string {
+    if (row.type === "labor") return "Baserat på ditt timpris (" + (result?.meta?.hourly_rate || 650) + " kr/h)";
+    if (row.type === "equipment") return "Uppskattat pris för maskin-/utrustningshyra";
+    return "Uppskattat marknadspris (svenska byggvaruhandeln 2025–2026)";
   }
 
   // ── INPUT STEP ──
@@ -194,31 +332,46 @@ export default function EstimatePage() {
           <div className="page-title">{result.job_title || "Kalkyl"}</div>
           <div className="page-subtitle">{result.job_summary || description}</div>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button className="btn btn-secondary" onClick={handleReset}>Ny kalkyl</button>
-          <button className={`btn ${saved ? "btn-secondary" : "btn-primary"}`} onClick={handleSave} disabled={saved}>
-            {saved ? "✓ Sparad" : "Spara kalkyl"}
+        <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+          <button className="btn btn-secondary btn-sm" onClick={handleReset}>Ny kalkyl</button>
+          <button className="btn btn-secondary btn-sm" onClick={() => setShowSources(!showSources)}>
+            {showSources ? "Dölj källor" : "Visa priskällor"}
+          </button>
+          <button className="btn btn-secondary btn-sm" onClick={handleDownloadQuote}>Ladda ner offert</button>
+          <button className={`btn btn-sm ${saved ? "btn-secondary" : "btn-primary"}`} onClick={handleSave} disabled={saved}>
+            {saved ? "✓ Sparad" : "Spara"}
           </button>
         </div>
       </div>
+
+      {/* Price source disclaimer */}
+      {showSources && (
+        <div className="info-box" style={{ marginBottom: 16 }}>
+          <strong>Om priskällor:</strong> Materialpriser är uppskattade baserat på svenska marknadspriser 2025–2026 (byggvaruhandel som Beijer, Bauhaus, Byggmax). 
+          Arbetskostnad baseras på ditt angivna timpris ({result.meta?.hourly_rate || 650} kr/h). 
+          Priserna är uppskattningar och kan variera beroende på leverantör, region och tillgänglighet. 
+          Verifiera alltid mot faktiska grossistpriser innan offert skickas till kund.
+        </div>
+      )}
 
       {/* Estimate table */}
       <div className="card" style={{ marginBottom: 16, padding: 0, overflow: "hidden" }}>
         <table className="est-table">
           <thead>
             <tr>
-              <th style={{ width: "40%" }}>Post</th>
+              <th style={{ width: showSources ? "35%" : "40%" }}>Post</th>
               <th>Enhet</th>
               <th className="right">Antal</th>
               <th className="right">À-pris</th>
               <th className="right">Summa</th>
+              {showSources && <th style={{ width: "20%" }}>Priskälla</th>}
             </tr>
           </thead>
           <tbody>
             {(result.categories || []).map((cat: any, ci: number) => (
               <>
                 <tr key={`cat-${ci}`} className="est-cat-row">
-                  <td colSpan={5}>{cat.name}</td>
+                  <td colSpan={showSources ? 6 : 5}>{cat.name}</td>
                 </tr>
                 {(cat.rows || []).map((row: any, ri: number) => (
                   <tr key={`row-${ci}-${ri}`}>
@@ -230,10 +383,15 @@ export default function EstimatePage() {
                     <td className="right" style={{ fontFamily: "var(--mono)" }}>{row.quantity}</td>
                     <td className="right" style={{ fontFamily: "var(--mono)" }}>{fmtKr(row.unit_price)}</td>
                     <td className="right" style={{ fontFamily: "var(--mono)", fontWeight: 600 }}>{fmtKr(row.total)}</td>
+                    {showSources && (
+                      <td style={{ fontSize: 11, color: "var(--text-faint)", fontStyle: "italic" }}>
+                        {getSourceLabel(row)}
+                      </td>
+                    )}
                   </tr>
                 ))}
                 <tr className="est-subtotal">
-                  <td colSpan={4} style={{ textAlign: "right" }}>Delsumma {cat.name}</td>
+                  <td colSpan={showSources ? 5 : 4} style={{ textAlign: "right" }}>Delsumma {cat.name}</td>
                   <td className="right" style={{ fontFamily: "var(--mono)" }}>{fmtKr(cat.subtotal)}</td>
                 </tr>
               </>
@@ -294,14 +452,12 @@ export default function EstimatePage() {
         )}
       </div>
 
-      {/* Estimated time */}
       {result.estimated_days && (
         <div className="info-box" style={{ marginTop: 16 }}>
           Uppskattad tidsåtgång: ca {result.estimated_days} arbetsdagar
         </div>
       )}
 
-      {/* Warnings */}
       {result.warnings?.length > 0 && (
         <div className="warning-box" style={{ marginTop: 12 }}>
           <strong>Observera:</strong>
@@ -311,7 +467,6 @@ export default function EstimatePage() {
         </div>
       )}
 
-      {/* Assumptions */}
       {result.assumptions?.length > 0 && (
         <div style={{ marginTop: 12, padding: "12px 16px", background: "var(--bg-elevated)", border: "0.5px solid var(--border)", borderRadius: "var(--radius)", fontSize: 12, color: "var(--text-muted)" }}>
           <strong style={{ color: "var(--text-secondary)" }}>Antaganden:</strong>
