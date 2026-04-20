@@ -4,6 +4,15 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
+function StarLogo({ size = 32 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 220 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M 110 10 Q 114 95, 118 115 Q 135 119, 210 122 Q 135 125, 118 129 Q 114 149, 110 234 Q 106 149, 102 129 Q 85 125, 10 122 Q 85 119, 102 115 Q 106 95, 110 10 Z" fill="#ffffff"/>
+      <path d="M 110 108 Q 112 118, 114 120 Q 120 121, 130 122 Q 120 123, 114 124 Q 112 126, 110 136 Q 108 126, 106 124 Q 100 123, 90 122 Q 100 121, 106 120 Q 108 118, 110 108 Z" fill="#fa832d"/>
+    </svg>
+  );
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -27,14 +36,7 @@ export default function LoginPage() {
         <div className="login-left-bg" />
         <div className="login-left-content">
           <div className="login-left-logo">
-            <svg width="32" height="32" viewBox="0 0 100 100" fill="none">
-              <rect x="8" y="40" width="14" height="52" rx="3" fill="#0d9488"/>
-              <rect x="28" y="24" width="14" height="68" rx="3" fill="#14b8a6"/>
-              <rect x="48" y="8" width="14" height="84" rx="3" fill="#0d9488"/>
-              <path d="M72 92L72 14L80 34Z" fill="#0d9488" opacity="0.7"/>
-              <path d="M72 14L80 34L72 28Z" fill="#0f766e"/>
-              <circle cx="72" cy="56" r="3" fill="none" stroke="#0d9488" strokeWidth="1.2"/>
-            </svg>
+            <StarLogo size={32} />
             <div className="login-left-wordmark">
               <span className="wm-nord">NORD</span>
               <span className="wm-sheet">SHEET</span>
@@ -64,14 +66,7 @@ export default function LoginPage() {
       <div className="login-right">
         <div className="login-card">
           <div className="login-logo-wrap">
-            <svg width="52" height="52" viewBox="0 0 100 100" fill="none">
-              <rect x="8" y="40" width="14" height="52" rx="3" fill="#0d9488"/>
-              <rect x="28" y="24" width="14" height="68" rx="3" fill="#14b8a6"/>
-              <rect x="48" y="8" width="14" height="84" rx="3" fill="#0d9488"/>
-              <path d="M72 92L72 14L80 34Z" fill="#0d9488" opacity="0.7"/>
-              <path d="M72 14L80 34L72 28Z" fill="#0f766e"/>
-              <circle cx="72" cy="56" r="3" fill="none" stroke="#0d9488" strokeWidth="1.2"/>
-            </svg>
+            <StarLogo size={52} />
           </div>
           <div className="login-heading">Välkommen till NordSheet</div>
           <div className="login-sub">Logga in för att börja kalkylera</div>
