@@ -8,13 +8,15 @@ function Logo() {
   return (
     <div className="sb-logo-wrap">
       <svg width="26" height="26" viewBox="0 0 100 100" fill="none">
-        <rect x="8" y="40" width="20" height="52" rx="3" fill="#f59e0b"/>
-        <rect x="34" y="24" width="20" height="68" rx="3" fill="#fbbf24"/>
-        <rect x="60" y="8" width="20" height="84" rx="3" fill="#f59e0b"/>
-        <path d="M4 92h80" stroke="#f59e0b" strokeWidth="3" strokeLinecap="round"/>
+        <rect x="8" y="40" width="14" height="52" rx="3" fill="#0d9488"/>
+        <rect x="28" y="24" width="14" height="68" rx="3" fill="#14b8a6"/>
+        <rect x="48" y="8" width="14" height="84" rx="3" fill="#0d9488"/>
+        <path d="M72 92L72 14L80 34Z" fill="#0d9488" opacity="0.7"/>
+        <path d="M72 14L80 34L72 28Z" fill="#0f766e"/>
+        <circle cx="72" cy="56" r="3" fill="none" stroke="#0d9488" strokeWidth="1.2"/>
       </svg>
       <div className="sb-wordmark">
-        <span className="sb-nord">BYGG</span><span className="sb-sheet">KALK</span>
+        <span className="sb-nord">NORD</span><span className="sb-sheet">SHEET</span>
       </div>
     </div>
   );
