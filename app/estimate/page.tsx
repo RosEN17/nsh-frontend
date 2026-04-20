@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import ProtectedLayout from "@/components/ProtectedLayout";
 import Header from "@/components/Header";
@@ -112,7 +112,7 @@ ${(result.warnings || []).length > 0 ? `<div style="margin-top:16px;padding:12px
 </body></html>`;
 }
 
-export default function EstimatePage() {
+function EstimateInner() {
   const searchParams = useSearchParams();
   const viewId = searchParams.get("view");
 
@@ -476,5 +476,12 @@ export default function EstimatePage() {
         </div>
       )}
     </ProtectedLayout>
+  );
+}
+export default function EstimatePage() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: "100vh", background: "#0d0d12" }} />}>
+      <EstimateInner />
+    </Suspense>
   );
 }
