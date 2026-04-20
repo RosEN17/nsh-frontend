@@ -30,6 +30,15 @@ export function deleteEstimate(id: string) {
   localStorage.setItem(ESTIMATES_KEY, JSON.stringify(all));
 }
 
+export function renameEstimate(id: string, newName: string) {
+  const all = getEstimates();
+  const est = all.find(e => e.id === id);
+  if (est) {
+    est.description = newName;
+    localStorage.setItem(ESTIMATES_KEY, JSON.stringify(all));
+  }
+}
+
 export function clearEstimates() {
   localStorage.removeItem(ESTIMATES_KEY);
 }
