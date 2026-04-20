@@ -1,6 +1,6 @@
 import "./globals.css";
 
-export const metadata = { title: "ByggKalk AI", description: "AI-driven kalkylering för hantverkare" };
+export const metadata = { title: "NordSheet", description: "Smart kalkylering för proffs" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
