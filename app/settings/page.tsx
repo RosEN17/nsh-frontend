@@ -8,20 +8,24 @@ const SETTINGS_KEY = "byggkalk_settings";
 
 interface Settings {
   company_name: string;
+  org_number: string;
+  phone: string;
+  email: string;
+  address: string;
   hourly_rate: number;
   margin_pct: number;
   include_rot: boolean;
-  org_number: string;
-  phone: string;
 }
 
 const defaults: Settings = {
   company_name: "",
+  org_number: "",
+  phone: "",
+  email: "",
+  address: "",
   hourly_rate: 650,
   margin_pct: 15,
   include_rot: true,
-  org_number: "",
-  phone: "",
 };
 
 function loadSettings(): Settings {
@@ -49,28 +53,40 @@ export default function SettingsPage() {
 
   return (
     <ProtectedLayout>
-      <Header title="Inställningar" subtitle="Standardvärden för nya kalkyler" />
+      <Header title="Inställningar" subtitle="Företagsuppgifter och standardvärden" />
 
       <div className="card" style={{ marginBottom: 16 }}>
-        <div className="card-title">Företagsuppgifter</div>
-        <div className="grid-2" style={{ gap: 12 }}>
-          <div>
-            <label className="label">Företagsnamn</label>
-            <input className="input" value={s.company_name} onChange={(e) => upd("company_name", e.target.value)} placeholder="AB Bygg & Renovering" />
+        <div className="card-title">Företagsuppgifter (visas på offerter)</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div className="grid-2" style={{ gap: 12 }}>
+            <div>
+              <label className="label">Företagsnamn</label>
+              <input className="input" value={s.company_name} onChange={(e) => upd("company_name", e.target.value)} placeholder="AB Bygg & Renovering" />
+            </div>
+            <div>
+              <label className="label">Org-nummer</label>
+              <input className="input" value={s.org_number} onChange={(e) => upd("org_number", e.target.value)} placeholder="556xxx-xxxx" />
+            </div>
+          </div>
+          <div className="grid-2" style={{ gap: 12 }}>
+            <div>
+              <label className="label">Telefon</label>
+              <input className="input" value={s.phone} onChange={(e) => upd("phone", e.target.value)} placeholder="070-xxx xx xx" />
+            </div>
+            <div>
+              <label className="label">E-post</label>
+              <input className="input" value={s.email} onChange={(e) => upd("email", e.target.value)} placeholder="info@foretag.se" />
+            </div>
           </div>
           <div>
-            <label className="label">Org-nummer</label>
-            <input className="input" value={s.org_number} onChange={(e) => upd("org_number", e.target.value)} placeholder="556xxx-xxxx" />
-          </div>
-          <div>
-            <label className="label">Telefon</label>
-            <input className="input" value={s.phone} onChange={(e) => upd("phone", e.target.value)} placeholder="070-xxx xx xx" />
+            <label className="label">Adress</label>
+            <input className="input" value={s.address} onChange={(e) => upd("address", e.target.value)} placeholder="Byggvägen 1, 123 45 Stockholm" />
           </div>
         </div>
       </div>
 
       <div className="card" style={{ marginBottom: 16 }}>
-        <div className="card-title">Standardvärden för kalkyler</div>
+        <div className="card-title">Standardvärden för nya kalkyler</div>
         <div className="grid-3" style={{ gap: 12 }}>
           <div>
             <label className="label">Timpris (kr/h)</label>
@@ -85,6 +101,10 @@ export default function SettingsPage() {
             <span style={{ fontSize: 13, color: "var(--text-primary)" }}>ROT-avdrag som standard</span>
           </div>
         </div>
+      </div>
+
+      <div className="info-box" style={{ marginBottom: 16 }}>
+        Företagsuppgifterna visas automatiskt på offerter du laddar ner. Fyll i dem för att skicka professionella offerter till kunder.
       </div>
 
       <button className="btn btn-primary" onClick={handleSave}>
