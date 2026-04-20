@@ -7,23 +7,29 @@ import { supabase } from "@/lib/supabase";
 function Logo() {
   return (
     <div className="sb-logo-wrap">
-      <svg width="34" height="34" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-        {/* House body */}
-        <rect x="16" y="50" width="68" height="44" rx="3" fill="#6b7280"/>
-        {/* Roof */}
-        <polygon points="8,52 50,12 92,52" fill="#9ca3af"/>
-        {/* Door */}
-        <rect x="38" y="66" width="24" height="28" rx="2" fill="#4b5563"/>
-        {/* Window left */}
-        <rect x="20" y="57" width="15" height="14" rx="2" fill="#374151"/>
-        {/* Window right */}
-        <rect x="65" y="57" width="15" height="14" rx="2" fill="#374151"/>
-        {/* Star top-right corner – coral, discrete */}
-        <polygon
-          points="86,3 88.2,9.8 95.5,9.8 89.8,14 92,20.5 86,16.5 80,20.5 82.2,14 76.5,9.8 83.8,9.8"
-          fill="#FF6B6B"
-          opacity="0.88"
-        />
+      <svg width="32" height="32" viewBox="0 0 220 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+        {/* 4-point star in white */}
+        <path d="M 110 10
+                 Q 114 95, 118 115
+                 Q 135 119, 210 122
+                 Q 135 125, 118 129
+                 Q 114 149, 110 234
+                 Q 106 149, 102 129
+                 Q 85 125, 10 122
+                 Q 85 119, 102 115
+                 Q 106 95, 110 10 Z"
+          fill="#ffffff"/>
+        {/* Small inner star accent */}
+        <path d="M 110 108
+                 Q 112 118, 114 120
+                 Q 120 121, 130 122
+                 Q 120 123, 114 124
+                 Q 112 126, 110 136
+                 Q 108 126, 106 124
+                 Q 100 123, 90 122
+                 Q 100 121, 106 120
+                 Q 108 118, 110 108 Z"
+          fill="#fa832d"/>
       </svg>
       <div className="sb-wordmark">
         <span className="sb-nord">NORD</span><span className="sb-sheet">SHEET</span>
