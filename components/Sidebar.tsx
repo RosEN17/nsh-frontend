@@ -7,13 +7,23 @@ import { supabase } from "@/lib/supabase";
 function Logo() {
   return (
     <div className="sb-logo-wrap">
-      <svg width="26" height="26" viewBox="0 0 100 100" fill="none">
-        <rect x="8" y="40" width="14" height="52" rx="3" fill="#0d9488"/>
-        <rect x="28" y="24" width="14" height="68" rx="3" fill="#14b8a6"/>
-        <rect x="48" y="8" width="14" height="84" rx="3" fill="#0d9488"/>
-        <path d="M72 92L72 14L80 34Z" fill="#0d9488" opacity="0.7"/>
-        <path d="M72 14L80 34L72 28Z" fill="#0f766e"/>
-        <circle cx="72" cy="56" r="3" fill="none" stroke="#0d9488" strokeWidth="1.2"/>
+      <svg width="34" height="34" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        {/* House body */}
+        <rect x="16" y="50" width="68" height="44" rx="3" fill="#6b7280"/>
+        {/* Roof */}
+        <polygon points="8,52 50,12 92,52" fill="#9ca3af"/>
+        {/* Door */}
+        <rect x="38" y="66" width="24" height="28" rx="2" fill="#4b5563"/>
+        {/* Window left */}
+        <rect x="20" y="57" width="15" height="14" rx="2" fill="#374151"/>
+        {/* Window right */}
+        <rect x="65" y="57" width="15" height="14" rx="2" fill="#374151"/>
+        {/* Star top-right corner – coral, discrete */}
+        <polygon
+          points="86,3 88.2,9.8 95.5,9.8 89.8,14 92,20.5 86,16.5 80,20.5 82.2,14 76.5,9.8 83.8,9.8"
+          fill="#FF6B6B"
+          opacity="0.88"
+        />
       </svg>
       <div className="sb-wordmark">
         <span className="sb-nord">NORD</span><span className="sb-sheet">SHEET</span>
