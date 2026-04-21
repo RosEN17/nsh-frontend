@@ -17,6 +17,9 @@ export async function createEstimate(body: {
   hourly_rate?: number;
   include_rot?: boolean;
   margin_pct?: number;
+  build_params?: Record<string, string>;
+  images?: { name: string; data: string }[];
+  documents?: { name: string; data: string }[];
 }) {
   const res = await fetch(`${API}/api/estimate`, {
     method: "POST",
