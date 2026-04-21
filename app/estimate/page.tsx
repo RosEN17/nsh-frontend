@@ -313,6 +313,11 @@ function EstimateInner() {
   const [jobType, setJobType] = useState("");
   const [description, setDescription] = useState("");
   const [areaSqm, setAreaSqm] = useState("");
+  const [ceilingHeight, setCeilingHeight] = useState("");
+  const [buildYear, setBuildYear] = useState("");
+  const [numRooms, setNumRooms] = useState("");
+  const [floors, setFloors] = useState("");
+  const [extraParams, setExtraParams] = useState("");
   const [location, setLocation] = useState("");
   const [hourlyRate, setHourlyRate] = useState("650");
   const [marginPct, setMarginPct] = useState("15");
@@ -359,6 +364,14 @@ function EstimateInner() {
     "Bygger din kalkyl...",
   ];
 
+  async function fileToBase64(file: File): Promise<string> {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.readAsDataURL(file);
+    });
+  }
+
   async function handleGenerate() {
     if (!description.trim()) { setError("Beskriv jobbet först."); return; }
     setError(""); setStep("loading"); setSaved(false);
@@ -369,6 +382,30 @@ function EstimateInner() {
       setLoadingMsg(loadingMessages[msgIdx]);
     }, 2000);
     try {
+      // Konvertera bilder till base64
+      const imageData: { name: string; data: string }[] = [];
+      for (const img of projectImages) {
+        const b64 = await fileToBase64(img.file);
+        imageData.push({ name: img.file.name, data: b64 });
+      }
+
+      // Konvertera dokument till base64 (bara text-baserade)
+      const docData: { name: string; data: string }[] = [];
+      for (const doc of projectDocs) {
+        if (doc.file.size < 5 * 1024 * 1024) { // Max 5MB
+          const b64 = await fileToBase64(doc.file);
+          docData.push({ name: doc.file.name, data: b64 });
+        }
+      }
+
+      // Bygg ihop byggparametrar
+      const buildParams: Record<string, string> = {};
+      if (ceilingHeight) buildParams.ceiling_height = ceilingHeight + " m";
+      if (buildYear) buildParams.build_year = buildYear;
+      if (numRooms) buildParams.num_rooms = numRooms;
+      if (floors) buildParams.floors = floors;
+      if (extraParams) buildParams.extra = extraParams;
+
       const data = await createEstimate({
         description: description.trim(),
         job_type: jobType || undefined,
@@ -377,6 +414,9 @@ function EstimateInner() {
         hourly_rate: parseFloat(hourlyRate) || 650,
         margin_pct: parseFloat(marginPct) || 15,
         include_rot: includeRot,
+        build_params: Object.keys(buildParams).length > 0 ? buildParams : undefined,
+        images: imageData.length > 0 ? imageData : undefined,
+        documents: docData.length > 0 ? docData : undefined,
       });
       clearInterval(interval); setResult(data); setStep("result");
     } catch (e: any) {
@@ -466,7 +506,7 @@ function EstimateInner() {
 
   function handleReset() {
     setStep("input"); setResult(null); setDescription(""); setJobType(""); setAreaSqm(""); setSaved(false); setShowSources(false);
-    setProjectImages([]); setProjectDocs([]);
+    setProjectImages([]); setProjectDocs([]); setCeilingHeight(""); setBuildYear(""); setNumRooms(""); setFloors(""); setExtraParams("");
     window.history.replaceState(null, "", "/estimate");
   }
 
@@ -515,6 +555,30 @@ function EstimateInner() {
             <label className="label">Plats</label>
             <input className="input" placeholder="Stad eller postnr" value={location} onChange={(e) => setLocation(e.target.value)} />
           </div>
+        </div>
+
+        <SectionRuler label="Byggparametrar (valfritt)" />
+        <div className="grid-4" style={{ marginBottom: 16 }}>
+          <div className="card card-sm">
+            <label className="label">Takhöjd (m)</label>
+            <input className="input" type="number" step="0.1" placeholder="2.5" value={ceilingHeight} onChange={(e) => setCeilingHeight(e.target.value)} />
+          </div>
+          <div className="card card-sm">
+            <label className="label">Byggår</label>
+            <input className="input" type="number" placeholder="1975" value={buildYear} onChange={(e) => setBuildYear(e.target.value)} />
+          </div>
+          <div className="card card-sm">
+            <label className="label">Antal rum</label>
+            <input className="input" type="number" placeholder="1" value={numRooms} onChange={(e) => setNumRooms(e.target.value)} />
+          </div>
+          <div className="card card-sm">
+            <label className="label">Våningar</label>
+            <input className="input" type="number" placeholder="1" value={floors} onChange={(e) => setFloors(e.target.value)} />
+          </div>
+        </div>
+        <div className="card card-sm" style={{ marginBottom: 16 }}>
+          <label className="label">Övriga detaljer</label>
+          <textarea className="input textarea" rows={2} placeholder="T.ex: Befintlig golvvärme, bärande vägg, asbest misstänks, vattenburen värme..." value={extraParams} onChange={(e) => setExtraParams(e.target.value)} />
         </div>
 
         <SectionRuler label="Kalkylparametrar" />
