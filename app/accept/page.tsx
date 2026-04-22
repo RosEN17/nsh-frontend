@@ -34,20 +34,28 @@ function AcceptInner() {
     if (result.success) {
       setAccepted(true);
 
-      // Skicka notis-mail tillbaka till företaget
+      // Skicka automatiskt mail till företaget via backend
       const settings = quote.settings_data || {};
       const companyEmail = settings.email;
       if (companyEmail) {
-        const subject = encodeURIComponent(`Offert godkänd: ${quote.title} — ${quote.customer_name || "Kund"}`);
-        const body = encodeURIComponent(
-          `Offerten "${quote.title}" har godkänts!\n\n` +
-          `Kund: ${quote.customer_name || "Ej angivet"}\n` +
-          `E-post: ${quote.customer_email || "Ej angivet"}\n` +
-          `Belopp: ${fmtKr(quote.customer_pays || quote.total_inc_vat || 0)}\n` +
-          `Godkänd: ${new Date().toLocaleDateString("sv-SE")} kl ${new Date().toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" })}\n\n` +
-          `Nästa steg: Skapa projektet i Bygglet.\n`
-        );
-        window.open(`mailto:${companyEmail}?subject=${subject}&body=${body}`, "_self");
+        try {
+          const API = process.env.NEXT_PUBLIC_API_BASE?.trim() || "";
+          await fetch(`${API}/api/notify-acceptance`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              company_email: companyEmail,
+              company_name: settings.company_name || "Företag",
+              quote_title: quote.title,
+              customer_name: quote.customer_name || "Ej angivet",
+              customer_email: quote.customer_email || "Ej angivet",
+              total_amount: fmtKr(quote.customer_pays || quote.total_inc_vat || 0),
+              accepted_date: new Date().toLocaleDateString("sv-SE") + " kl " + new Date().toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" }),
+            }),
+          });
+        } catch (e) {
+          console.error("Kunde inte skicka notifikation:", e);
+        }
       }
     } else {
       setError(result.error || "Något gick fel");
