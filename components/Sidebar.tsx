@@ -61,7 +61,7 @@ export default function Sidebar() {
       <nav className="sb-nav">
         <SbLink href="/dashboard" icon="dashboard" label="Dashboard" />
         <SbLink href="/estimate"  icon="estimate"  label="Ny kalkyl" />
-        <SbLink href="/estimates" icon="estimates" label="Mina kalkyler" />
+        <SbLink href="/estimates" icon="estimates" label="Mina offerter" />
       </nav>
       <div className="sb-bottom">
         <div className="sb-divider" />
