@@ -1,34 +1,5 @@
 import { supabase } from "./supabase";
 
-// ═══════════════════════════════════════════════════════════════
-// BYGGLET INTEGRATION — byt ut denna funktion när ni har API-nyckel
-// ═══════════════════════════════════════════════════════════════
-async function createByggletProject(quote: any): Promise<{ success: boolean; project_id?: string; error?: string }> {
-  // TODO: Ersätt med riktigt Bygglet API-anrop
-  // Exempel på hur det troligen ser ut:
-  //
-  // const res = await fetch("https://api.bygglet.com/v1/projects", {
-  //   method: "POST",
-  //   headers: {
-  //     "Authorization": `Bearer ${process.env.NEXT_PUBLIC_BYGGLET_API_KEY}`,
-  //     "Content-Type": "application/json",
-  //   },
-  //   body: JSON.stringify({
-  //     name: quote.title,
-  //     description: quote.description,
-  //     customer_name: quote.customer_name,
-  //     customer_email: quote.customer_email,
-  //     budget: quote.customer_pays,
-  //   }),
-  // });
-  // const data = await res.json();
-  // return { success: res.ok, project_id: data.id };
-
-  console.log("[Bygglet placeholder] Skulle skapa projekt:", quote.title);
-  return { success: true, project_id: "placeholder-" + Date.now() };
-}
-// ═══════════════════════════════════════════════════════════════
-
 export interface QuoteRecord {
   id: string;
   user_id: string;
@@ -102,15 +73,12 @@ export async function acceptQuote(id: string): Promise<{ success: boolean; error
 
   if (error) return { success: false, error: error.message };
 
-  // 2. Hämta hela offerten
+  // 2. Hämta offerten för att visa info
   const quote = await getQuoteById(id);
   if (!quote) return { success: false, error: "Offert hittades inte" };
 
-  // 3. Skapa projekt i Bygglet (placeholder tills API finns)
-  const bygglet = await createByggletProject(quote);
-  if (!bygglet.success) {
-    console.error("[Bygglet] Kunde inte skapa projekt:", bygglet.error);
-  }
+  // 3. Öppna mailto tillbaka till företaget med "godkänd"-notis
+  //    (detta görs i accept-sidan, inte här)
 
   return { success: true };
 }
