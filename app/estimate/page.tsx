@@ -313,11 +313,6 @@ function EstimateInner() {
   const [jobType, setJobType] = useState("");
   const [description, setDescription] = useState("");
   const [areaSqm, setAreaSqm] = useState("");
-  const [ceilingHeight, setCeilingHeight] = useState("");
-  const [buildYear, setBuildYear] = useState("");
-  const [numRooms, setNumRooms] = useState("");
-  const [floors, setFloors] = useState("");
-  const [extraParams, setExtraParams] = useState("");
   const [location, setLocation] = useState("");
   const [hourlyRate, setHourlyRate] = useState("650");
   const [marginPct, setMarginPct] = useState("15");
@@ -364,14 +359,6 @@ function EstimateInner() {
     "Bygger din kalkyl...",
   ];
 
-  async function fileToBase64(file: File): Promise<string> {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.readAsDataURL(file);
-    });
-  }
-
   async function handleGenerate() {
     if (!description.trim()) { setError("Beskriv jobbet först."); return; }
     setError(""); setStep("loading"); setSaved(false);
@@ -382,30 +369,6 @@ function EstimateInner() {
       setLoadingMsg(loadingMessages[msgIdx]);
     }, 2000);
     try {
-      // Konvertera bilder till base64
-      const imageData: { name: string; data: string }[] = [];
-      for (const img of projectImages) {
-        const b64 = await fileToBase64(img.file);
-        imageData.push({ name: img.file.name, data: b64 });
-      }
-
-      // Konvertera dokument till base64 (bara text-baserade)
-      const docData: { name: string; data: string }[] = [];
-      for (const doc of projectDocs) {
-        if (doc.file.size < 5 * 1024 * 1024) { // Max 5MB
-          const b64 = await fileToBase64(doc.file);
-          docData.push({ name: doc.file.name, data: b64 });
-        }
-      }
-
-      // Bygg ihop byggparametrar
-      const buildParams: Record<string, string> = {};
-      if (ceilingHeight) buildParams.ceiling_height = ceilingHeight + " m";
-      if (buildYear) buildParams.build_year = buildYear;
-      if (numRooms) buildParams.num_rooms = numRooms;
-      if (floors) buildParams.floors = floors;
-      if (extraParams) buildParams.extra = extraParams;
-
       const data = await createEstimate({
         description: description.trim(),
         job_type: jobType || undefined,
@@ -414,9 +377,6 @@ function EstimateInner() {
         hourly_rate: parseFloat(hourlyRate) || 650,
         margin_pct: parseFloat(marginPct) || 15,
         include_rot: includeRot,
-        build_params: Object.keys(buildParams).length > 0 ? buildParams : undefined,
-        images: imageData.length > 0 ? imageData : undefined,
-        documents: docData.length > 0 ? docData : undefined,
       });
       clearInterval(interval); setResult(data); setStep("result");
     } catch (e: any) {
@@ -449,6 +409,11 @@ function EstimateInner() {
     if (w) w.onload = () => setTimeout(() => w.print(), 500);
   }
 
+  const [mailStep, setMailStep] = useState<"form" | "choose">("form");
+  const [mailSubject, setMailSubject] = useState("");
+  const [mailBody, setMailBody] = useState("");
+  const [savedQuoteId, setSavedQuoteId] = useState("");
+
   async function handleMailCustomer() {
     if (!result) return;
     if (!customerEmail.trim()) { alert("Fyll i kundens e-postadress."); return; }
@@ -458,7 +423,6 @@ function EstimateInner() {
     setSending(true);
     const t = result.totals || {};
 
-    // Spara offert i Supabase
     const { id, error } = await saveQuoteToSupabase(
       result.job_title || description,
       result.job_summary || description,
@@ -476,14 +440,13 @@ function EstimateInner() {
       return;
     }
 
-    // Skapa acceptera-länk
+    setSavedQuoteId(id);
     const acceptUrl = `${window.location.origin}/accept?id=${id}`;
     const companyName = settings.company_name || "Vi";
     const totalText = fmtKr(t.customer_pays || t.total_inc_vat || 0);
 
-    // Öppna mailto med offertinfo
-    const subject = encodeURIComponent(`Offert: ${result.job_title || "Kalkyl"} — ${companyName}`);
-    const body = encodeURIComponent(
+    const subj = `Offert: ${result.job_title || "Kalkyl"} — ${companyName}`;
+    const bd =
       `Hej ${customerName || ""}!\n\n` +
       `Tack för din förfrågan. Här kommer vår offert för ${result.job_title || "arbetet"}.\n\n` +
       `Sammanfattning:\n` +
@@ -494,19 +457,39 @@ function EstimateInner() {
       `Offerten är giltig i ${settings.quote_validity_days || 30} dagar.\n\n` +
       `Med vänliga hälsningar\n${settings.contact_name || companyName}\n` +
       (settings.phone ? `Tel: ${settings.phone}\n` : "") +
-      (settings.email ? `${settings.email}\n` : "")
-    );
+      (settings.email ? `${settings.email}\n` : "");
 
-    window.open(`mailto:${customerEmail}?subject=${subject}&body=${body}`, "_self");
-
+    setMailSubject(subj);
+    setMailBody(bd);
     setSending(false);
-    setSent(true);
-    setShowMailModal(false);
+    setMailStep("choose");
+  }
+
+  function openGmail() {
+    const url = `https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(customerEmail)}&su=${encodeURIComponent(mailSubject)}&body=${encodeURIComponent(mailBody)}`;
+    window.open(url, "_blank");
+    setSent(true); setShowMailModal(false); setMailStep("form");
+  }
+
+  function openOutlook() {
+    const url = `https://outlook.live.com/mail/0/deeplink/compose?to=${encodeURIComponent(customerEmail)}&subject=${encodeURIComponent(mailSubject)}&body=${encodeURIComponent(mailBody)}`;
+    window.open(url, "_blank");
+    setSent(true); setShowMailModal(false); setMailStep("form");
+  }
+
+  function openMailto() {
+    window.location.href = `mailto:${customerEmail}?subject=${encodeURIComponent(mailSubject)}&body=${encodeURIComponent(mailBody)}`;
+    setSent(true); setShowMailModal(false); setMailStep("form");
+  }
+
+  function copyMailContent() {
+    navigator.clipboard.writeText(`Till: ${customerEmail}\nÄmne: ${mailSubject}\n\n${mailBody}`);
+    alert("Kopierat till urklipp!");
   }
 
   function handleReset() {
     setStep("input"); setResult(null); setDescription(""); setJobType(""); setAreaSqm(""); setSaved(false); setShowSources(false);
-    setProjectImages([]); setProjectDocs([]); setCeilingHeight(""); setBuildYear(""); setNumRooms(""); setFloors(""); setExtraParams("");
+    setProjectImages([]); setProjectDocs([]);
     window.history.replaceState(null, "", "/estimate");
   }
 
@@ -555,30 +538,6 @@ function EstimateInner() {
             <label className="label">Plats</label>
             <input className="input" placeholder="Stad eller postnr" value={location} onChange={(e) => setLocation(e.target.value)} />
           </div>
-        </div>
-
-        <SectionRuler label="Byggparametrar (valfritt)" />
-        <div className="grid-4" style={{ marginBottom: 16 }}>
-          <div className="card card-sm">
-            <label className="label">Takhöjd (m)</label>
-            <input className="input" type="number" step="0.1" placeholder="2.5" value={ceilingHeight} onChange={(e) => setCeilingHeight(e.target.value)} />
-          </div>
-          <div className="card card-sm">
-            <label className="label">Byggår</label>
-            <input className="input" type="number" placeholder="1975" value={buildYear} onChange={(e) => setBuildYear(e.target.value)} />
-          </div>
-          <div className="card card-sm">
-            <label className="label">Antal rum</label>
-            <input className="input" type="number" placeholder="1" value={numRooms} onChange={(e) => setNumRooms(e.target.value)} />
-          </div>
-          <div className="card card-sm">
-            <label className="label">Våningar</label>
-            <input className="input" type="number" placeholder="1" value={floors} onChange={(e) => setFloors(e.target.value)} />
-          </div>
-        </div>
-        <div className="card card-sm" style={{ marginBottom: 16 }}>
-          <label className="label">Övriga detaljer</label>
-          <textarea className="input textarea" rows={2} placeholder="T.ex: Befintlig golvvärme, bärande vägg, asbest misstänks, vattenburen värme..." value={extraParams} onChange={(e) => setExtraParams(e.target.value)} />
         </div>
 
         <SectionRuler label="Kalkylparametrar" />
@@ -759,28 +718,57 @@ function EstimateInner() {
       {/* Mail modal */}
       {showMailModal && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
-          <div style={{ background: "var(--bg-elevated)", border: "0.5px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "28px 32px", width: 420, maxWidth: "90vw" }}>
+          <div style={{ background: "var(--bg-elevated)", border: "0.5px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "28px 32px", width: 440, maxWidth: "90vw" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)" }}>Skicka offert till kund</div>
-              <button onClick={() => setShowMailModal(false)} style={{ background: "none", border: "none", color: "var(--text-faint)", cursor: "pointer", fontSize: 18 }}>✕</button>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)" }}>
+                {mailStep === "form" ? "Skicka offert till kund" : "Välj mailapp"}
+              </div>
+              <button onClick={() => { setShowMailModal(false); setMailStep("form"); }} style={{ background: "none", border: "none", color: "var(--text-faint)", cursor: "pointer", fontSize: 18 }}>✕</button>
             </div>
-            <div style={{ marginBottom: 14 }}>
-              <label className="label">Kundens namn</label>
-              <input className="input" placeholder="Anna Andersson" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
-            </div>
-            <div style={{ marginBottom: 20 }}>
-              <label className="label">Kundens e-post *</label>
-              <input className="input" type="email" placeholder="kund@email.se" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} />
-            </div>
-            <div style={{ padding: "12px 16px", background: "var(--bg-surface)", borderRadius: "var(--radius)", fontSize: 12, color: "var(--text-muted)", marginBottom: 20 }}>
-              Kunden får ett mail med en sammanfattning och en länk för att granska och godkänna offerten. När kunden godkänner skapas ett projekt automatiskt.
-            </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowMailModal(false)}>Avbryt</button>
-              <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleMailCustomer} disabled={sending || !customerEmail.trim()}>
-                {sending ? "Förbereder..." : "Öppna mail"}
-              </button>
-            </div>
+
+            {mailStep === "form" ? (
+              <>
+                <div style={{ marginBottom: 14 }}>
+                  <label className="label">Kundens namn</label>
+                  <input className="input" placeholder="Anna Andersson" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
+                </div>
+                <div style={{ marginBottom: 20 }}>
+                  <label className="label">Kundens e-post *</label>
+                  <input className="input" type="email" placeholder="kund@email.se" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} />
+                </div>
+                <div style={{ padding: "12px 16px", background: "var(--bg-surface)", borderRadius: "var(--radius)", fontSize: 12, color: "var(--text-muted)", marginBottom: 20 }}>
+                  Kunden får ett mail med en sammanfattning och en länk för att granska och godkänna offerten.
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowMailModal(false)}>Avbryt</button>
+                  <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleMailCustomer} disabled={sending || !customerEmail.trim()}>
+                    {sending ? "Sparar offert..." : "Fortsätt"}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 16 }}>
+                  Offerten är sparad. Välj hur du vill skicka mailet till <span style={{ color: "var(--text-primary)", fontWeight: 600 }}>{customerEmail}</span>:
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+                  <button className="btn btn-primary" onClick={openGmail} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                    <span style={{ fontSize: 18 }}>📧</span> Öppna i Gmail
+                  </button>
+                  <button className="btn btn-secondary" onClick={openOutlook} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                    <span style={{ fontSize: 18 }}>📬</span> Öppna i Outlook
+                  </button>
+                  <button className="btn btn-secondary" onClick={openMailto} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                    <span style={{ fontSize: 18 }}>💻</span> Öppna i standardmail
+                  </button>
+                </div>
+                <div style={{ borderTop: "0.5px solid var(--border)", paddingTop: 12 }}>
+                  <button className="btn btn-secondary" onClick={copyMailContent} style={{ width: "100%", fontSize: 12 }}>
+                    📋 Kopiera mailinnehåll
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
