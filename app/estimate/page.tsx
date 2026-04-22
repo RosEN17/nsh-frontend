@@ -613,7 +613,7 @@ function EstimateInner() {
             {sent ? "✓ Skickad" : "✉ Maila kund"}
           </button>
           <button className={`btn btn-sm ${saved ? "btn-secondary" : "btn-primary"}`} onClick={handleSave} disabled={saved}>
-            {saved ? "✓ Sparad" : "Spara"}
+            {saved ? "✓ Utkast sparat" : "Spara utkast"}
           </button>
         </div>
       </div>
