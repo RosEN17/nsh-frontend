@@ -4,29 +4,33 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
-function NordsheetLogo() {
+function NordsheetLogo({ size = 32 }: { size?: number }) {
   return (
-    <svg width="160" height="44" viewBox="0 0 320 88" fill="none" xmlns="http://www.w3.org/2000/svg">
-      {/* ── Document icon ── */}
-      {/* Body */}
-      <rect x="2" y="2" width="58" height="74" rx="6" fill="white"/>
-      {/* Folded corner cut */}
-      <path d="M44 2 L60 18 L44 18 Z" fill="#b0bec5"/>
-      <path d="M44 2 L60 18 H44 Z" fill="#cfd8dc"/>
-      {/* N letter */}
-      <text x="8" y="44" fontFamily="Arial Black, Arial, sans-serif" fontWeight="900" fontSize="24" fill="#1a2530">N</text>
-      {/* Chart dots + curve */}
-      <circle cx="10" cy="64" r="3.5" fill="#6a8193"/>
-      <path d="M10 64 Q22 52 32 57 Q42 62 52 46" stroke="#6a8193" strokeWidth="3.5" strokeLinecap="round" fill="none"/>
+    <svg width={size} height={size} viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Document body */}
+      <rect x="20" y="10" width="130" height="160" rx="10" ry="10" fill="white"/>
+      {/* Folded corner */}
+      <path d="M120 10 L150 40 L120 40 Z" fill="#c8d6de"/>
+      <path d="M120 10 L150 40 H120 Z" fill="#dce8ef"/>
+      {/* Letter N */}
+      <text x="38" y="85" fontFamily="Arial Black, sans-serif" fontWeight="900" fontSize="52" fill="#1a2530">N</text>
+      {/* Chart line with arrow */}
+      <polyline points="35,145 75,115 105,130 145,90" stroke="#6a8193" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+      <circle cx="35" cy="145" r="7" fill="#6a8193"/>
       {/* Arrow head */}
-      <path d="M52 46 L46 43 L49 50 Z" fill="#6a8193"/>
-
-      {/* ── Wordmark ── */}
-      <text x="74" y="38" fontFamily="Arial, sans-serif" fontWeight="700" fontSize="26" fill="#6a8193">Nord</text>
-      <text x="74" y="38" fontFamily="Arial, sans-serif" fontWeight="700" fontSize="26" fill="#ffffff" dx="52">Sheet</text>
-      {/* Tagline */}
-      <text x="75" y="56" fontFamily="Arial, sans-serif" fontWeight="600" fontSize="10" fill="#6a8193" letterSpacing="2">SNABB PRECISION</text>
+      <polygon points="145,90 130,82 138,100" fill="#6a8193"/>
     </svg>
+  );
+}
+
+function Logo() {
+  return (
+    <div className="sb-logo-wrap">
+      <NordsheetLogo size={34} />
+      <div className="sb-wordmark">
+        <span className="sb-nord">Nord</span><span className="sb-sheet">Sheet</span>
+      </div>
+    </div>
   );
 }
 
@@ -62,9 +66,7 @@ export default function Sidebar() {
 
   return (
     <aside className="sidebar">
-      <div className="sb-brand">
-        <NordsheetLogo />
-      </div>
+      <div className="sb-brand"><Logo /></div>
       <div className="sb-divider" />
       <nav className="sb-nav">
         <SbLink href="/dashboard" icon="dashboard" label="Dashboard" />
