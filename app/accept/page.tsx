@@ -28,11 +28,27 @@ function AcceptInner() {
   }, [quoteId]);
 
   async function handleAccept() {
-    if (!quoteId) return;
+    if (!quoteId || !quote) return;
     setAccepting(true);
     const result = await acceptQuote(quoteId);
     if (result.success) {
       setAccepted(true);
+
+      // Skicka notis-mail tillbaka till företaget
+      const settings = quote.settings_data || {};
+      const companyEmail = settings.email;
+      if (companyEmail) {
+        const subject = encodeURIComponent(`Offert godkänd: ${quote.title} — ${quote.customer_name || "Kund"}`);
+        const body = encodeURIComponent(
+          `Offerten "${quote.title}" har godkänts!\n\n` +
+          `Kund: ${quote.customer_name || "Ej angivet"}\n` +
+          `E-post: ${quote.customer_email || "Ej angivet"}\n` +
+          `Belopp: ${fmtKr(quote.customer_pays || quote.total_inc_vat || 0)}\n` +
+          `Godkänd: ${new Date().toLocaleDateString("sv-SE")} kl ${new Date().toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" })}\n\n` +
+          `Nästa steg: Skapa projektet i Bygglet.\n`
+        );
+        window.open(`mailto:${companyEmail}?subject=${subject}&body=${body}`, "_self");
+      }
     } else {
       setError(result.error || "Något gick fel");
     }
@@ -109,11 +125,11 @@ function AcceptInner() {
             </thead>
             <tbody>
               {(data.categories || []).map((cat: any, ci: number) => (
-                <>
+                <>{/* eslint-disable-next-line react/jsx-key */}
                   <tr key={`c${ci}`}><td colSpan={5} style={{ padding: "10px 16px", fontWeight: 600, fontSize: 11, textTransform: "uppercase" as const, letterSpacing: 1.5, color: "#64748b", background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>{cat.name}</td></tr>
                   {(cat.rows || []).map((row: any, ri: number) => (
                     <tr key={`r${ci}${ri}`}>
-                      <td style={{ padding: "10px 16px", borderBottom: "1px solid #f1f5f9", fontSize: 13, color: "#1e293b" }}>{row.description}</td>
+                      <td style={{ padding: "10px 16px", borderBottom: "1px solid #f1f5f9", fontSize: 13, color: "#1e293b" }}>{row.description}{row.note && <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 1 }}>{row.note}</div>}</td>
                       <td style={{ padding: "10px 12px", borderBottom: "1px solid #f1f5f9", fontSize: 12, color: "#94a3b8", textAlign: "center" as const }}>{row.unit}</td>
                       <td style={{ padding: "10px 12px", borderBottom: "1px solid #f1f5f9", fontSize: 13, textAlign: "right" as const, color: "#334155" }}>{row.quantity}</td>
                       <td style={{ padding: "10px 12px", borderBottom: "1px solid #f1f5f9", fontSize: 13, textAlign: "right" as const, color: "#334155" }}>{fmtKr(row.unit_price)}</td>
@@ -149,7 +165,7 @@ function AcceptInner() {
               <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
               <div style={{ fontSize: 20, fontWeight: 700, color: "#16a34a", marginBottom: 8 }}>Offerten är godkänd!</div>
               <div style={{ fontSize: 14, color: "#64748b" }}>
-                Tack för ditt godkännande. {settings.company_name || "Vi"} återkommer med nästa steg.
+                Tack för ditt godkännande. {settings.company_name || "Vi"} har fått en notifikation och återkommer med nästa steg.
               </div>
             </div>
           ) : (
