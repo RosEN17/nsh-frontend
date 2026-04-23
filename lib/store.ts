@@ -9,6 +9,7 @@ export interface SavedEstimate {
   total_inc_vat: number;
   customer_pays: number;
   data: any;
+  supabase_id?: string; // satt när utkastet är sparat till Supabase
 }
 
 export function getEstimates(): SavedEstimate[] {
@@ -35,6 +36,15 @@ export function renameEstimate(id: string, newName: string) {
   const est = all.find(e => e.id === id);
   if (est) {
     est.description = newName;
+    localStorage.setItem(ESTIMATES_KEY, JSON.stringify(all));
+  }
+}
+
+export function setSupabaseId(id: string, supabaseId: string) {
+  const all = getEstimates();
+  const est = all.find(e => e.id === id);
+  if (est) {
+    est.supabase_id = supabaseId;
     localStorage.setItem(ESTIMATES_KEY, JSON.stringify(all));
   }
 }
