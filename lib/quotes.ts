@@ -16,6 +16,36 @@ export interface QuoteRecord {
   settings_data: any;
 }
 
+export async function saveDraftToSupabase(
+  title: string,
+  totalIncVat: number,
+  customerPays: number,
+  quoteData: any
+): Promise<{ id: string | null; error: string | null }> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { id: null, error: "Inte inloggad" };
+
+  const { data, error } = await supabase
+    .from("quotes")
+    .insert({
+      user_id: user.id,
+      title,
+      description: "",
+      customer_name: "",
+      customer_email: "",
+      total_inc_vat: totalIncVat,
+      customer_pays: customerPays,
+      status: "draft",
+      quote_data: quoteData,
+      settings_data: {},
+    })
+    .select("id")
+    .single();
+
+  if (error) return { id: null, error: error.message };
+  return { id: data.id, error: null };
+}
+
 export async function saveQuoteToSupabase(
   title: string,
   description: string,
@@ -62,7 +92,6 @@ export async function getQuoteById(id: string): Promise<QuoteRecord | null> {
 }
 
 export async function acceptQuote(id: string): Promise<{ success: boolean; error?: string }> {
-  // 1. Markera som accepterad i Supabase
   const { error } = await supabase
     .from("quotes")
     .update({
@@ -73,12 +102,8 @@ export async function acceptQuote(id: string): Promise<{ success: boolean; error
 
   if (error) return { success: false, error: error.message };
 
-  // 2. Hämta offerten för att visa info
   const quote = await getQuoteById(id);
   if (!quote) return { success: false, error: "Offert hittades inte" };
-
-  // 3. Öppna mailto tillbaka till företaget med "godkänd"-notis
-  //    (detta görs i accept-sidan, inte här)
 
   return { success: true };
 }
