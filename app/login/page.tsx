@@ -4,17 +4,23 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
-function NordsheetLogo({ size = 32 }: { size?: number }) {
+function Logo({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
+  const sizes = {
+    sm: { main: 14, sub: 8, spacing: "1.6px", gap: 2 },
+    md: { main: 17, sub: 9, spacing: "1.8px", gap: 2 },
+    lg: { main: 22, sub: 10, spacing: "2px", gap: 3 },
+  };
+  const s = sizes[size];
   return (
-    <svg width={size} height={size} viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="20" y="10" width="130" height="160" rx="10" ry="10" fill="white"/>
-      <path d="M120 10 L150 40 L120 40 Z" fill="#c8d6de"/>
-      <path d="M120 10 L150 40 H120 Z" fill="#dce8ef"/>
-      <text x="38" y="85" fontFamily="Arial Black, sans-serif" fontWeight="900" fontSize="52" fill="#1a2530">N</text>
-      <polyline points="35,145 75,115 105,130 145,90" stroke="#6a8193" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-      <circle cx="35" cy="145" r="7" fill="#6a8193"/>
-      <polygon points="145,90 130,82 138,100" fill="#6a8193"/>
-    </svg>
+    <div>
+      <div style={{ lineHeight: 1 }}>
+        <span style={{ fontSize: s.main, fontWeight: 700, color: "#6a8193" }}>Nord</span>
+        <span style={{ fontSize: s.main, fontWeight: 700, color: "#ffffff" }}>Sheet</span>
+      </div>
+      <div style={{ fontSize: s.sub, letterSpacing: s.spacing, color: "#6a8193", fontWeight: 600, marginTop: s.gap }}>
+        SNABB PRECISION
+      </div>
+    </div>
   );
 }
 
@@ -41,11 +47,7 @@ export default function LoginPage() {
         <div className="login-left-bg" />
         <div className="login-left-content">
           <div className="login-left-logo">
-            <NordsheetLogo size={32} />
-            <div className="login-left-wordmark">
-              <span className="wm-nord">Nord</span>
-              <span className="wm-sheet">Sheet</span>
-            </div>
+            <Logo size="md" />
           </div>
           <div className="login-tagline">
             Smart<br />
@@ -71,7 +73,7 @@ export default function LoginPage() {
       <div className="login-right">
         <div className="login-card">
           <div className="login-logo-wrap">
-            <NordsheetLogo size={52} />
+            <Logo size="lg" />
           </div>
           <div className="login-heading">Välkommen till NordSheet</div>
           <div className="login-sub">Logga in för att börja kalkylera</div>
