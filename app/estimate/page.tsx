@@ -5,8 +5,8 @@ import { useSearchParams } from "next/navigation";
 import ProtectedLayout from "@/components/ProtectedLayout";
 import Header from "@/components/Header";
 import { createEstimate } from "@/lib/api";
-import { saveEstimate, getEstimates } from "@/lib/store";
-import { saveQuoteToSupabase } from "@/lib/quotes";
+import { saveEstimate, getEstimates, setSupabaseId } from "@/lib/store";
+import { saveQuoteToSupabase, saveDraftToSupabase } from "@/lib/quotes";
 
 const JOB_TYPES = [
   { id: "badrum", label: "Badrum", icon: "🚿" },
@@ -93,12 +93,8 @@ function UploadPanel({
     setDocs([...docs, ...newItems]);
   }
 
-  function removeImage(id: string) {
-    setImages(images.filter(i => i.id !== id));
-  }
-  function removeDoc(id: string) {
-    setDocs(docs.filter(d => d.id !== id));
-  }
+  function removeImage(id: string) { setImages(images.filter(i => i.id !== id)); }
+  function removeDoc(id: string) { setDocs(docs.filter(d => d.id !== id)); }
 
   return (
     <>
@@ -116,7 +112,6 @@ function UploadPanel({
           <div className="upload-zone-title">Dra och släpp bilder här</div>
           <div className="upload-zone-hint">JPG, PNG, WEBP, HEIC — välj flera filer samtidigt</div>
         </div>
-
         {images.length > 0 && (
           <div className="img-preview-grid">
             {images.map(img => (
@@ -143,7 +138,6 @@ function UploadPanel({
           <div className="upload-zone-title">Dra och släpp dokument här</div>
           <div className="upload-zone-hint">PDF, Word, Excel, ZIP, DWG — max 20 MB per fil</div>
         </div>
-
         {docs.length > 0 && (
           <div className="file-list">
             {docs.map(doc => (
@@ -219,7 +213,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;max-width:800px;margin:0 auto;paddi
 @media print{body{padding:20px;font-size:11px} .no-print{display:none!important}}
 table{width:100%;border-collapse:collapse}
 </style></head><body>
-<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:16px;border-bottom:3px solid #fa832d">
+<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:16px;border-bottom:3px solid #6a8193">
   <div>
     ${logoHTML}
     ${settings.logo_base64 && settings.company_name ? `<div style="font-size:10px;color:#888;margin-top:4px">${settings.company_name}</div>` : ""}
@@ -227,7 +221,7 @@ table{width:100%;border-collapse:collapse}
     <div style="font-size:10px;color:#aaa">${companyInfo}</div>
   </div>
   <div style="text-align:right">
-    <div style="font-size:22px;font-weight:800;color:#fa832d;letter-spacing:1px">OFFERT</div>
+    <div style="font-size:22px;font-weight:800;color:#6a8193;letter-spacing:1px">OFFERT</div>
     <div style="font-size:11px;color:#888;margin-top:6px">
       <div>Offertnummer: <strong>${quoteNr}</strong></div>
       <div>Datum: ${today}</div>
@@ -274,7 +268,7 @@ ${settings.contact_name ? `
   ` : ""}
 </div>
 ${result.estimated_days ? `<div style="padding:10px 16px;background:#f0f9ff;border-left:3px solid #3b82f6;font-size:12px;color:#1e40af;margin-bottom:12px">Uppskattad tidsåtgång: ca ${result.estimated_days} arbetsdagar</div>` : ""}
-${(result.warnings || []).length > 0 ? `<div style="padding:10px 16px;background:#fff7ed;border-left:3px solid #fa832d;font-size:11px;color:#9a3412;margin-bottom:12px"><strong>Observera:</strong><ul style="margin:4px 0 0 16px;padding:0">${result.warnings.map((w: string) => `<li>${w}</li>`).join("")}</ul></div>` : ""}
+${(result.warnings || []).length > 0 ? `<div style="padding:10px 16px;background:#fff7ed;border-left:3px solid #6a8193;font-size:11px;color:#9a3412;margin-bottom:12px"><strong>Observera:</strong><ul style="margin:4px 0 0 16px;padding:0">${result.warnings.map((w: string) => `<li>${w}</li>`).join("")}</ul></div>` : ""}
 ${settings.quote_footer ? `
 <div style="margin-top:20px;padding:14px 16px;background:#f9f9f9;border-radius:6px;font-size:11px;color:#666">
   <strong style="color:#444">Villkor:</strong><br>
@@ -305,6 +299,48 @@ ${paymentInfo ? `<div style="margin-top:12px;font-size:10px;color:#aaa;text-alig
 </body></html>`;
 }
 
+// ── Namnmodal ──────────────────────────────────────────────
+function NameModal({
+  defaultName,
+  onConfirm,
+  onCancel,
+  title,
+  confirmLabel,
+  saving,
+}: {
+  defaultName: string;
+  onConfirm: (name: string) => void;
+  onCancel: () => void;
+  title: string;
+  confirmLabel: string;
+  saving: boolean;
+}) {
+  const [name, setName] = useState(defaultName);
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
+      <div style={{ background: "var(--bg-elevated)", border: "0.5px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "28px 32px", width: 420, maxWidth: "90vw" }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)", marginBottom: 16 }}>{title}</div>
+        <label className="label">Namn på offerten</label>
+        <input
+          className="input"
+          value={name}
+          onChange={e => setName(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter" && name.trim()) onConfirm(name.trim()); if (e.key === "Escape") onCancel(); }}
+          autoFocus
+          placeholder="T.ex. Badrumsrenovering Svensson"
+          style={{ marginBottom: 20 }}
+        />
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className="btn btn-secondary" style={{ flex: 1 }} onClick={onCancel}>Avbryt</button>
+          <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => name.trim() && onConfirm(name.trim())} disabled={!name.trim() || saving}>
+            {saving ? "Sparar..." : confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function EstimateInner() {
   const searchParams = useSearchParams();
   const viewId = searchParams.get("view");
@@ -327,6 +363,13 @@ function EstimateInner() {
   const [customerEmail, setCustomerEmail] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
+
+  // Namnmodal state
+  const [showDraftModal, setShowDraftModal] = useState(false);
+  const [showSendModal, setShowSendModal] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
+
+  const [localId] = useState(() => crypto.randomUUID());
 
   const [projectImages, setProjectImages] = useState<UploadedFile[]>([]);
   const [projectDocs, setProjectDocs] = useState<UploadedFile[]>([]);
@@ -384,17 +427,35 @@ function EstimateInner() {
     }
   }
 
-  function handleSave() {
+  // Kallas när användaren bekräftat namn i drafts-modal
+  async function handleConfirmDraft(name: string) {
     if (!result) return;
+    setSavingDraft(true);
+
+    // 1. Spara lokalt i localStorage
     saveEstimate({
-      id: crypto.randomUUID(),
+      id: localId,
       created: new Date().toISOString(),
-      description: result.job_title || description,
+      description: name,
       job_type: jobType,
       total_inc_vat: result.totals?.total_inc_vat || 0,
       customer_pays: result.totals?.customer_pays || result.totals?.total_inc_vat || 0,
       data: result,
     });
+
+    // 2. Spara till Supabase
+    const { id: sbId, error: sbErr } = await saveDraftToSupabase(
+      name,
+      result.totals?.total_inc_vat || 0,
+      result.totals?.customer_pays || result.totals?.total_inc_vat || 0,
+      result
+    );
+
+    if (sbId) setSupabaseId(localId, sbId);
+    if (sbErr) console.warn("Supabase draft error:", sbErr);
+
+    setSavingDraft(false);
+    setShowDraftModal(false);
     setSaved(true);
   }
 
@@ -412,7 +473,22 @@ function EstimateInner() {
   const [mailStep, setMailStep] = useState<"form" | "choose">("form");
   const [mailSubject, setMailSubject] = useState("");
   const [mailBody, setMailBody] = useState("");
-  const [savedQuoteId, setSavedQuoteId] = useState("");
+  const [pendingSendName, setPendingSendName] = useState("");
+
+  // Steg 1: klick på "Maila kund" → öppna namnmodal
+  function handleClickSend() {
+    if (!result) return;
+    setPendingSendName(result.job_title || description || "Ny offert");
+    setShowSendModal(true);
+  }
+
+  // Steg 2: namn bekräftat → öppna mailmodalen med kundfält
+  function handleConfirmSendName(name: string) {
+    setShowSendModal(false);
+    // Spara offertnamnet som pendingTitle för mailmodalen
+    setPendingSendName(name);
+    setShowMailModal(true);
+  }
 
   async function handleMailCustomer() {
     if (!result) return;
@@ -424,7 +500,7 @@ function EstimateInner() {
     const t = result.totals || {};
 
     const { id, error } = await saveQuoteToSupabase(
-      result.job_title || description,
+      pendingSendName || result.job_title || description,
       result.job_summary || description,
       customerName,
       customerEmail,
@@ -440,15 +516,14 @@ function EstimateInner() {
       return;
     }
 
-    setSavedQuoteId(id);
     const acceptUrl = `${window.location.origin}/accept?id=${id}`;
     const companyName = settings.company_name || "Vi";
     const totalText = fmtKr(t.customer_pays || t.total_inc_vat || 0);
 
-    const subj = `Offert: ${result.job_title || "Kalkyl"} — ${companyName}`;
+    const subj = `Offert: ${pendingSendName || result.job_title || "Kalkyl"} — ${companyName}`;
     const bd =
       `Hej ${customerName || ""}!\n\n` +
-      `Tack för din förfrågan. Här kommer vår offert för ${result.job_title || "arbetet"}.\n\n` +
+      `Tack för din förfrågan. Här kommer vår offert för ${pendingSendName || result.job_title || "arbetet"}.\n\n` +
       `Sammanfattning:\n` +
       `${result.job_summary || ""}\n\n` +
       `Totalt: ${fmtKr(t.total_inc_vat || 0)}\n` +
@@ -584,7 +659,7 @@ function EstimateInner() {
         <div className="loading-overlay">
           <svg width="64" height="64" viewBox="0 0 220 240" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M 110 10 Q 114 95, 118 115 Q 135 119, 210 122 Q 135 125, 118 129 Q 114 149, 110 234 Q 106 149, 102 129 Q 85 125, 10 122 Q 85 119, 102 115 Q 106 95, 110 10 Z" fill="#ffffff"/>
-            <path d="M 110 108 Q 112 118, 114 120 Q 120 121, 130 122 Q 120 123, 114 124 Q 112 126, 110 136 Q 108 126, 106 124 Q 100 123, 90 122 Q 100 121, 106 120 Q 108 118, 110 108 Z" fill="#fa832d"/>
+            <path d="M 110 108 Q 112 118, 114 120 Q 120 121, 130 122 Q 120 123, 114 124 Q 112 126, 110 136 Q 108 126, 106 124 Q 100 123, 90 122 Q 100 121, 106 120 Q 108 118, 110 108 Z" fill="#6a8193"/>
           </svg>
           <div className="loading-text">{loadingMsg}</div>
           <div className="loading-bar"><div className="loading-bar-fill" /></div>
@@ -603,16 +678,24 @@ function EstimateInner() {
           <div className="page-title">{result.job_title || "Kalkyl"}</div>
           <div className="page-subtitle">{result.job_summary || description}</div>
         </div>
-        <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+        <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap", justifyContent: "flex-end" }}>
           <button className="btn btn-secondary btn-sm" onClick={handleReset}>Ny kalkyl</button>
           <button className="btn btn-secondary btn-sm" onClick={() => setShowSources(!showSources)}>
             {showSources ? "Dölj källor" : "Visa priskällor"}
           </button>
           <button className="btn btn-secondary btn-sm" onClick={handleDownloadQuote}>📄 Ladda ner offert</button>
-          <button className="btn btn-secondary btn-sm" onClick={() => setShowMailModal(true)} style={{ background: "var(--accent-soft)", color: "var(--accent-text)", borderColor: "var(--accent-border)" }}>
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={handleClickSend}
+            style={{ background: "var(--accent-soft)", color: "var(--accent-text)", borderColor: "var(--accent-border)" }}
+          >
             {sent ? "✓ Skickad" : "✉ Maila kund"}
           </button>
-          <button className={`btn btn-sm ${saved ? "btn-secondary" : "btn-primary"}`} onClick={handleSave} disabled={saved}>
+          <button
+            className={`btn btn-sm ${saved ? "btn-secondary" : "btn-primary"}`}
+            onClick={() => !saved && setShowDraftModal(true)}
+            disabled={saved}
+          >
             {saved ? "✓ Utkast sparat" : "Spara utkast"}
           </button>
         </div>
@@ -715,7 +798,32 @@ function EstimateInner() {
           </ul>
         </div>
       )}
-      {/* Mail modal */}
+
+      {/* ── Namnmodal för utkast ── */}
+      {showDraftModal && (
+        <NameModal
+          defaultName={result.job_title || description || "Nytt utkast"}
+          onConfirm={handleConfirmDraft}
+          onCancel={() => setShowDraftModal(false)}
+          title="Spara utkast"
+          confirmLabel="Spara utkast"
+          saving={savingDraft}
+        />
+      )}
+
+      {/* ── Namnmodal för skicka ── */}
+      {showSendModal && (
+        <NameModal
+          defaultName={result.job_title || description || "Ny offert"}
+          onConfirm={handleConfirmSendName}
+          onCancel={() => setShowSendModal(false)}
+          title="Namnge offerten"
+          confirmLabel="Fortsätt"
+          saving={false}
+        />
+      )}
+
+      {/* ── Mailmodal ── */}
       {showMailModal && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
           <div style={{ background: "var(--bg-elevated)", border: "0.5px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "28px 32px", width: 440, maxWidth: "90vw" }}>
@@ -728,6 +836,9 @@ function EstimateInner() {
 
             {mailStep === "form" ? (
               <>
+                <div style={{ padding: "10px 14px", background: "var(--accent-soft)", border: "0.5px solid var(--accent-border)", borderRadius: "var(--radius)", fontSize: 12, color: "var(--accent-text)", marginBottom: 16 }}>
+                  <strong>Offert:</strong> {pendingSendName}
+                </div>
                 <div style={{ marginBottom: 14 }}>
                   <label className="label">Kundens namn</label>
                   <input className="input" placeholder="Anna Andersson" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
