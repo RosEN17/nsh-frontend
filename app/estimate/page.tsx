@@ -222,55 +222,271 @@ function generateQuoteHTML(result: any, settings: any) {
   const validDays = settings.quote_validity_days || 30;
   const validUntil = new Date(Date.now() + validDays * 86400000).toLocaleDateString("sv-SE");
   const quoteNr = "OFF-" + new Date().getFullYear() + "-" + String(Math.floor(Math.random() * 9000) + 1000);
+  const companyName = settings.company_name || "Företagsnamn";
+  const hourlyRate = result.meta?.hourly_rate || settings.hourly_rate || 650;
 
+  // ── Tabellrader ─────────────────────────────────────────
   let rowsHTML = "";
   for (const cat of result.categories || []) {
-    rowsHTML += `<tr style="background:#f8f8f8"><td colspan="5" style="padding:10px 12px;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid #e5e5e5;color:#555">${cat.name}</td></tr>`;
+    rowsHTML += `<tr style="background:#f5f5f5"><td colspan="5" style="padding:10px 12px;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:0.6px;border-bottom:1px solid #e0e0e0;color:#444">${cat.name}</td></tr>`;
     for (const row of cat.rows || []) {
       rowsHTML += `<tr>
-        <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:12px">${row.description}${row.note ? `<br><span style="font-size:10px;color:#999">${row.note}</span>` : ""}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:12px;color:#222">${row.description}${row.note ? `<br><span style="font-size:10px;color:#999">${row.note}</span>` : ""}</td>
         <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:11px;color:#888;text-align:center">${row.unit}</td>
         <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:12px;text-align:right;font-family:'Courier New',monospace">${row.quantity}</td>
         <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:12px;text-align:right;font-family:'Courier New',monospace">${fmtKr(row.unit_price)}</td>
         <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:12px;text-align:right;font-family:'Courier New',monospace;font-weight:600">${fmtKr(row.total)}</td>
       </tr>`;
     }
-    rowsHTML += `<tr><td colspan="4" style="padding:8px 12px;text-align:right;font-weight:600;font-size:11px;border-bottom:2px solid #ddd;color:#555">Delsumma</td><td style="padding:8px 12px;text-align:right;font-weight:700;font-size:12px;font-family:'Courier New',monospace;border-bottom:2px solid #ddd">${fmtKr(cat.subtotal)}</td></tr>`;
+    rowsHTML += `<tr style="background:#fafafa"><td colspan="4" style="padding:8px 12px;text-align:right;font-weight:600;font-size:11px;border-bottom:2px solid #ddd;color:#555">Delsumma</td><td style="padding:8px 12px;text-align:right;font-weight:700;font-size:12px;font-family:'Courier New',monospace;border-bottom:2px solid #ddd">${fmtKr(cat.subtotal)}</td></tr>`;
   }
 
+  // ── Logotyp & info ──────────────────────────────────────
   const logoHTML = settings.logo_base64
-    ? `<img src="${settings.logo_base64}" style="max-height:60px;max-width:200px" />`
-    : `<div style="font-size:24px;font-weight:800;color:#1a1a1a">${settings.company_name || "Företagsnamn"}</div>`;
+    ? `<img src="${settings.logo_base64}" style="max-height:55px;max-width:180px;object-fit:contain" />`
+    : `<div style="font-size:22px;font-weight:800;color:#1a1a1a;letter-spacing:-0.5px">${companyName}</div>`;
 
-  const companyInfo = [settings.address, settings.zip_city, settings.phone ? `Tel: ${settings.phone}` : "", settings.email, settings.website].filter(Boolean).join(" · ");
-  const paymentInfo = [settings.bankgiro ? `Bankgiro: ${settings.bankgiro}` : "", settings.plusgiro ? `Plusgiro: ${settings.plusgiro}` : "", settings.f_skatt ? "Godkänd för F-skatt" : ""].filter(Boolean).join(" · ");
+  const companyInfoLines = [
+    settings.address,
+    settings.zip_city,
+    settings.phone ? `Tel: ${settings.phone}` : "",
+    settings.email,
+    settings.website,
+  ].filter(Boolean);
 
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Offert ${quoteNr}</title>
-<style>body{font-family:'Segoe UI',Arial,sans-serif;max-width:800px;margin:0 auto;padding:40px;color:#222;font-size:13px;line-height:1.5}@media print{body{padding:20px}}table{width:100%;border-collapse:collapse}</style></head><body>
-<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:16px;border-bottom:3px solid #6a8193">
-  <div>${logoHTML}<div style="font-size:10px;color:#aaa;margin-top:2px">${settings.org_number ? `Org.nr: ${settings.org_number}` : ""}</div><div style="font-size:10px;color:#aaa">${companyInfo}</div></div>
-  <div style="text-align:right"><div style="font-size:22px;font-weight:800;color:#6a8193;letter-spacing:1px">OFFERT</div>
-  <div style="font-size:11px;color:#888;margin-top:6px"><div>Offertnummer: <strong>${quoteNr}</strong></div><div>Datum: ${today}</div><div>Giltig t.o.m: ${validUntil}</div></div></div>
+  const paymentParts = [
+    settings.bankgiro ? `Bankgiro: ${settings.bankgiro}` : "",
+    settings.plusgiro ? `Plusgiro: ${settings.plusgiro}` : "",
+    settings.iban ? `IBAN: ${settings.iban}` : "",
+    settings.f_skatt ? "Godkänd för F-skatt" : "",
+  ].filter(Boolean);
+
+  // ── Anbudstext ──────────────────────────────────────────
+  const anbudsText = settings.quote_intro ||
+    "Vi tackar för er förfrågan och erbjuder oss härmed att utföra arbeten på rubricerat projekt i enlighet med erhållet förfrågningsunderlag/platsbesök";
+
+  // ── Förutsättningar ─────────────────────────────────────
+  const defaultPrereqs = [
+    "Att fri framkomlighet finns och att störande arbete kan utföras dagtid 07.00–17.00",
+    "Att ni fritt tillhandahåller el och vatten",
+    "Att container/säckar för avfall ska kunna ställas i nära anslutning till respektive hus",
+    "Att 2 meter grusad och plan mark finns runt grund för byggnation ställning",
+  ];
+  const prereqLines = settings.quote_prerequisites
+    ? settings.quote_prerequisites.split("\n").filter(Boolean)
+    : defaultPrereqs;
+
+  // ── Reservationer ───────────────────────────────────────
+  const defaultReservations = [
+    "Byggström tillhandahålls av byggherren",
+    "Anslutningsavgifter samt utsättning ingår ej",
+    "Byggvatten ingår ej i denna offert, skall finnas minst 10 meter från respektive lgh under arbete",
+    "Markarbeten ingår ej i denna offert",
+    "Offert kan komma justeras efter mottagning bygghandlingar",
+    "Vi förutsätter full framkomlighet för samtliga transporter",
+    "Om vår offert bedöms som intressant förutsätter vi att dialog förs med oss innan avtal tecknas",
+    "Sprängning ingår ej i detta anbud",
+  ];
+  const reservationLines = settings.quote_reservations
+    ? settings.quote_reservations.split("\n").filter(Boolean)
+    : defaultReservations;
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Offert ${quoteNr}</title>
+<style>
+  body { font-family: 'Segoe UI', Arial, sans-serif; max-width: 820px; margin: 0 auto; padding: 40px; color: #222; font-size: 13px; line-height: 1.6; }
+  @media print { body { padding: 20px; font-size: 11px; } }
+  table { width: 100%; border-collapse: collapse; }
+  h2 { font-size: 16px; font-weight: 700; margin: 0 0 12px; color: #1a1a1a; }
+  .section { margin-bottom: 28px; }
+  .divider { border: none; border-top: 1px solid #e0e0e0; margin: 24px 0; }
+  .label { font-weight: 700; margin-bottom: 3px; }
+</style>
+</head>
+<body>
+
+<!-- ══ HEADER ══ -->
+<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;padding-bottom:18px;border-bottom:3px solid #6a8193">
+  <div>
+    ${logoHTML}
+    ${settings.logo_base64 && companyName ? `<div style="font-size:11px;color:#555;margin-top:5px;font-weight:600">${companyName}</div>` : ""}
+    ${settings.org_number ? `<div style="font-size:10px;color:#888;margin-top:1px">Org.nr: ${settings.org_number}</div>` : ""}
+    <div style="font-size:10px;color:#888;margin-top:2px;line-height:1.7">
+      ${companyInfoLines.join("<br>")}
+    </div>
+  </div>
+  <div style="text-align:right">
+    <div style="font-size:26px;font-weight:800;color:#6a8193;letter-spacing:1px">OFFERT</div>
+    <div style="font-size:12px;color:#555;margin-top:8px;line-height:1.8">
+      <div>Offertnummer: <strong>${quoteNr}</strong></div>
+      <div>Datum: ${today}</div>
+      <div>Giltig t.o.m: <strong>${validUntil}</strong></div>
+      ${settings.contact_name ? `<div style="margin-top:4px">Kontakt: ${settings.contact_name}${settings.contact_title ? `, ${settings.contact_title}` : ""}</div>` : ""}
+    </div>
+  </div>
 </div>
-<div style="margin-bottom:20px"><div style="font-size:16px;font-weight:700;margin-bottom:4px">${result.job_title || "Kalkyl"}</div><div style="font-size:12px;color:#666">${result.job_summary || ""}</div></div>
-<table style="margin-bottom:20px"><thead><tr style="background:#1a1a1a;color:white">
-  <th style="padding:8px 12px;text-align:left;font-size:10px;text-transform:uppercase">Post</th>
-  <th style="padding:8px 12px;text-align:center;font-size:10px;text-transform:uppercase">Enhet</th>
-  <th style="padding:8px 12px;text-align:right;font-size:10px;text-transform:uppercase">Antal</th>
-  <th style="padding:8px 12px;text-align:right;font-size:10px;text-transform:uppercase">À-pris</th>
-  <th style="padding:8px 12px;text-align:right;font-size:10px;text-transform:uppercase">Summa</th>
-</tr></thead><tbody>${rowsHTML}</tbody></table>
-<div style="max-width:350px;margin-left:auto;margin-bottom:24px">
-  <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;color:#666"><span>Material</span><span>${fmtKr(t.material_total||0)}</span></div>
-  <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;color:#666"><span>Arbete</span><span>${fmtKr(t.labor_total||0)}</span></div>
-  <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;color:#666"><span>Summa exkl. moms</span><span>${fmtKr(t.total_ex_vat||0)}</span></div>
-  <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;color:#666"><span>Moms 25%</span><span>${fmtKr(t.vat||0)}</span></div>
-  <div style="display:flex;justify-content:space-between;padding:12px 0;font-size:17px;font-weight:800;border-top:2px solid #1a1a1a;margin-top:6px"><span>Totalt inkl. moms</span><span>${fmtKr(t.total_inc_vat||0)}</span></div>
-  ${t.rot_deduction ? `<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;color:#16a34a"><span>ROT-avdrag</span><span>−${fmtKr(t.rot_deduction)}</span></div><div style="display:flex;justify-content:space-between;padding:10px 0;font-size:17px;font-weight:800;color:#16a34a;border-top:2px solid #16a34a;margin-top:4px"><span>Att betala</span><span>${fmtKr(t.customer_pays||t.total_inc_vat||0)}</span></div>` : ""}
+
+<!-- ══ KUND ══ -->
+<div style="display:flex;gap:40px;margin-bottom:24px">
+  <div style="flex:1;padding:14px 16px;border:1px dashed #ccc;border-radius:4px;font-size:12px;color:#999">
+    <div style="font-weight:700;color:#666;margin-bottom:8px">KUND</div>
+    Namn: ________________________________<br><br>
+    Adress: ________________________________<br><br>
+    Telefon: ________________________________
+  </div>
+  <div style="flex:1;padding:14px 16px;background:#f9f9f9;border-radius:4px;font-size:12px">
+    <div style="font-weight:700;color:#666;margin-bottom:8px">AVSER</div>
+    <div style="font-size:15px;font-weight:700;color:#1a1a1a;margin-bottom:4px">${result.job_title || "Kalkyl"}</div>
+    <div style="color:#666;line-height:1.5">${result.job_summary || ""}</div>
+  </div>
 </div>
-${paymentInfo ? `<div style="margin-top:12px;font-size:10px;color:#aaa;text-align:center">${paymentInfo}</div>` : ""}
-${settings.quote_footer ? `<div style="margin-top:20px;padding:14px 16px;background:#f9f9f9;border-radius:6px;font-size:11px;color:#666"><strong>Villkor:</strong><br>${settings.quote_footer.replace(/\n/g,"<br>")}</div>` : ""}
-</body></html>`;
+
+<!-- ══ INLEDNING & FÖRUTSÄTTNINGAR ══ -->
+<div class="section">
+  <p style="margin:0 0 14px;color:#333;line-height:1.7">${anbudsText}</p>
+  <p style="margin:0 0 6px;font-weight:700;color:#1a1a1a">Anbudssumma förutsätter:</p>
+  <ul style="margin:0;padding-left:20px;color:#333;line-height:1.9">
+    ${prereqLines.map((l: string) => `<li>${l}</li>`).join("")}
+  </ul>
+</div>
+
+<hr class="divider">
+
+<!-- ══ KALKYLRADER ══ -->
+<div class="section">
+  <h2>Specifikation</h2>
+  <table style="margin-bottom:20px">
+    <thead>
+      <tr style="background:#1a1a1a;color:white">
+        <th style="padding:9px 12px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;width:40%">Post</th>
+        <th style="padding:9px 12px;text-align:center;font-size:10px;text-transform:uppercase">Enhet</th>
+        <th style="padding:9px 12px;text-align:right;font-size:10px;text-transform:uppercase">Antal</th>
+        <th style="padding:9px 12px;text-align:right;font-size:10px;text-transform:uppercase">À-pris</th>
+        <th style="padding:9px 12px;text-align:right;font-size:10px;text-transform:uppercase">Summa</th>
+      </tr>
+    </thead>
+    <tbody>${rowsHTML}</tbody>
+  </table>
+
+  <!-- Summering -->
+  <div style="max-width:360px;margin-left:auto">
+    <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;color:#666;border-bottom:1px solid #eee"><span>Material</span><span style="font-family:'Courier New',monospace">${fmtKr(t.material_total || 0)}</span></div>
+    <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;color:#666;border-bottom:1px solid #eee"><span>Arbete</span><span style="font-family:'Courier New',monospace">${fmtKr(t.labor_total || 0)}</span></div>
+    ${(t.equipment_total || 0) > 0 ? `<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;color:#666;border-bottom:1px solid #eee"><span>Utrustning</span><span style="font-family:'Courier New',monospace">${fmtKr(t.equipment_total)}</span></div>` : ""}
+    ${(t.margin_amount || 0) > 0 ? `<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;color:#666;border-bottom:1px solid #eee"><span>Påslag</span><span style="font-family:'Courier New',monospace">${fmtKr(t.margin_amount)}</span></div>` : ""}
+    <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;color:#666;border-bottom:1px solid #eee"><span>Summa exkl. moms</span><span style="font-family:'Courier New',monospace">${fmtKr(t.total_ex_vat || 0)}</span></div>
+    <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;color:#666;border-bottom:1px solid #eee"><span>Moms 25%</span><span style="font-family:'Courier New',monospace">${fmtKr(t.vat || 0)}</span></div>
+    <div style="display:flex;justify-content:space-between;padding:12px 0;font-size:18px;font-weight:800;border-top:2px solid #1a1a1a;margin-top:4px"><span>Totalt inkl. moms</span><span style="font-family:'Courier New',monospace">${fmtKr(t.total_inc_vat || 0)}</span></div>
+    ${t.rot_deduction ? `
+    <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;color:#16a34a"><span>ROT-avdrag (30% på arbete)</span><span style="font-family:'Courier New',monospace">−${fmtKr(t.rot_deduction)}</span></div>
+    <div style="display:flex;justify-content:space-between;padding:10px 0;font-size:18px;font-weight:800;color:#16a34a;border-top:2px solid #16a34a;margin-top:4px"><span>Att betala</span><span style="font-family:'Courier New',monospace">${fmtKr(t.customer_pays || t.total_inc_vat || 0)}</span></div>
+    ` : ""}
+  </div>
+</div>
+
+${result.estimated_days ? `<div style="padding:10px 16px;background:#f0f9ff;border-left:3px solid #3b82f6;font-size:12px;color:#1e40af;margin-bottom:16px">Uppskattad tidsåtgång: ca ${result.estimated_days} arbetsdagar</div>` : ""}
+
+<hr class="divider">
+
+<!-- ══ RESERVATIONER ══ -->
+<div class="section">
+  <p style="margin:0 0 6px;font-weight:700;color:#1a1a1a">Reservationer:</p>
+  <ul style="margin:0;padding-left:20px;color:#333;line-height:1.9">
+    ${reservationLines.map((l: string) => `<li>${l}</li>`).join("")}
+  </ul>
+</div>
+
+<hr class="divider">
+
+<!-- ══ FÖRUTSÄTTNINGAR & VILLKOR ══ -->
+<div class="section">
+  <h2>Förutsättningar &amp; villkor</h2>
+
+  <div style="margin-bottom:14px">
+    <div class="label">Betalningsvillkor</div>
+    <div>${settings.payment_terms || "30 dagar."}</div>
+  </div>
+
+  <div style="margin-bottom:14px">
+    <div class="label">Offertens giltighetstid</div>
+    <div>Offertens giltighetstid gäller ${validDays} dagar från ovanstående datum.</div>
+  </div>
+
+  <div style="margin-bottom:14px">
+    <div class="label">Tillkommande arbeten</div>
+    <div>
+      Arbetad tid debiteras med ${hourlyRate.toLocaleString("sv-SE")},00 exkl. moms<br>
+      Underentreprenörers arbeten debiteras mot redovisad kostnad +12%<br>
+      Material debiteras mot redovisad kostnad +12%
+    </div>
+  </div>
+
+  ${settings.quote_footer ? `
+  <div style="margin-bottom:14px">
+    <div class="label">Övriga villkor</div>
+    <div>${settings.quote_footer.replace(/\n/g, "<br>")}</div>
+  </div>` : ""}
+
+  <div style="margin-bottom:14px">
+    <div class="label">Personuppgifter</div>
+    <div style="color:#444;line-height:1.7">
+      Vid godkännande av denna offert accepterar du att vi behandlar dina personuppgifter för att kunna fullfölja vårt åtagande gentemot dig som kund.
+      Den information vi behandlar för er är information som berörs och är nödvändig för byggprojektets administration.
+      Personuppgifterna lagras och hanteras med tekniska och organisatoriska säkerhetsåtgärder för att skydda hanteringen av personuppgifter
+      och lever upp till de krav som ställs enligt EU:s dataskyddsförordning (GDPR).
+      <br><br>
+      Vi kommer om ni begär det att radera eller anonymisera och oavsett anledning därtill, inklusive att radera samtliga kopior som inte enligt GDPR
+      måste sparas. Vi kommer inte att överföra personuppgifter till land utanför EU/ESS.
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ══ UNDERSKRIFTER ══ -->
+<div style="display:flex;justify-content:space-between;margin-bottom:32px">
+  <div style="width:45%">
+    <div style="font-size:11px;color:#888;margin-bottom:36px">Leverantör</div>
+    <div style="border-top:1px solid #bbb;padding-top:8px;font-size:12px;color:#444">
+      ${settings.contact_name || companyName}${settings.contact_title ? `<br>${settings.contact_title}` : ""}
+    </div>
+  </div>
+  <div style="width:45%">
+    <div style="font-size:11px;color:#888;margin-bottom:36px">Kund (godkännande)</div>
+    <div style="border-top:1px solid #bbb;padding-top:8px;font-size:12px;color:#888">
+      Namn: ________________________<br>
+      Datum: ________________________
+    </div>
+  </div>
+</div>
+
+<!-- ══ SIDFOT — FÖRETAGSUPPGIFTER ══ -->
+<div style="border-top:2px solid #6a8193;padding-top:16px;margin-top:8px">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;font-size:11px;color:#555">
+    <div>
+      <div style="font-weight:700;color:#1a1a1a;font-size:12px;margin-bottom:4px">${companyName}</div>
+      ${settings.org_number ? `<div>Org.nr: ${settings.org_number}</div>` : ""}
+      ${settings.f_skatt ? `<div>Godkänd för F-skatt</div>` : ""}
+      ${settings.address ? `<div>${settings.address}${settings.zip_city ? `, ${settings.zip_city}` : ""}</div>` : ""}
+    </div>
+    <div style="text-align:center">
+      ${settings.phone ? `<div>Tel: ${settings.phone}</div>` : ""}
+      ${settings.email ? `<div>${settings.email}</div>` : ""}
+      ${settings.website ? `<div>${settings.website}</div>` : ""}
+    </div>
+    <div style="text-align:right">
+      ${settings.bankgiro ? `<div>Bankgiro: ${settings.bankgiro}</div>` : ""}
+      ${settings.plusgiro ? `<div>Plusgiro: ${settings.plusgiro}</div>` : ""}
+      ${settings.iban ? `<div>IBAN: ${settings.iban}</div>` : ""}
+    </div>
+  </div>
+</div>
+
+</body>
+</html>`;
 }
 
 // ── Namnmodal ─────────────────────────────────────────────────────────────────
