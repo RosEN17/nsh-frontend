@@ -634,6 +634,16 @@ function EstimateInner() {
     "Bygger din kalkyl...",
   ];
 
+  // Konvertera en File till base64 data-URL
+  function fileToBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
   async function handleGenerate() {
     if (!description.trim()) { setError("Beskriv jobbet först."); return; }
     setError(""); setStep("loading"); setSaved(false);
@@ -644,11 +654,38 @@ function EstimateInner() {
       setLoadingMsg(loadingMessages[msgIdx]);
     }, 2000);
 
-    // Hämta location från fälten
     const location = fieldValues["location"] || "";
     const buildParams = buildAiParams();
 
     try {
+      // Konvertera projektbilder till base64
+      const imagePayload = await Promise.all(
+        imageFiles.map(async (f) => ({
+          name: f.name,
+          data: await fileToBase64(f),
+        }))
+      );
+
+      // Konvertera PDF-underlag till base64
+      const pdfPayload = await Promise.all(
+        pdfFiles.map(async (f) => ({
+          name: f.name,
+          data: await fileToBase64(f),
+        }))
+      );
+
+      // Konvertera ritningar — bilder skickas som images, PDFs som documents
+      const drawingImages = await Promise.all(
+        drawingFiles
+          .filter((f) => !f.name.toLowerCase().endsWith(".pdf"))
+          .map(async (f) => ({ name: f.name, data: await fileToBase64(f) }))
+      );
+      const drawingPdfs = await Promise.all(
+        drawingFiles
+          .filter((f) => f.name.toLowerCase().endsWith(".pdf"))
+          .map(async (f) => ({ name: f.name, data: await fileToBase64(f) }))
+      );
+
       const data = await createEstimate({
         description: description.trim(),
         job_type: jobType,
@@ -657,6 +694,8 @@ function EstimateInner() {
         margin_pct: parseFloat(marginPct) || 15,
         include_rot: includeRot,
         build_params: buildParams,
+        images: [...imagePayload, ...drawingImages],
+        documents: [...pdfPayload, ...drawingPdfs],
       });
       clearInterval(interval);
       setResult(data);
