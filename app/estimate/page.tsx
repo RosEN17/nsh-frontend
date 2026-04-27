@@ -215,7 +215,27 @@ function EstimateInner() {
   function fileToBase64(file: File): Promise<string> {
     return new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result as string); r.onerror = reject; r.readAsDataURL(file); });
   }
-
+  async function writeCraftsmanEdits(
+  supabaseQuoteId: string,
+  edits: Record<string, RowEdit>
+) {
+  try {
+    const SUPABASE_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+    const SUPABASE_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+    await fetch(`${SUPABASE_URL}/rest/v1/quotes?id=eq.${supabaseQuoteId}`, {
+      method: "PATCH",
+      headers: {
+        "apikey": SUPABASE_ANON,
+        "Authorization": `Bearer ${SUPABASE_ANON}`,
+        "Content-Type": "application/json",
+        "Prefer": "return=minimal",
+      },
+      body: JSON.stringify({ craftsman_edits: edits }),
+    });
+  } catch (e) {
+    console.warn("Kunde inte spara craftsman_edits:", e);
+  }
+}
   async function handleGenerate() {
     if (!description.trim()) { setError("Beskriv jobbet först."); return; }
     setError(""); setStep("loading"); setSaved(false);
@@ -235,7 +255,12 @@ function EstimateInner() {
     if (!result) return; setSavingDraft(true);
     saveEstimate({ id: localId, created: new Date().toISOString(), description: name, job_type: jobType, total_inc_vat: result.totals?.total_inc_vat || 0, customer_pays: result.totals?.customer_pays || result.totals?.total_inc_vat || 0, data: { ...result, categories } });
     const { id: sbId } = await saveDraftToSupabase(name, result.totals?.total_inc_vat || 0, result.totals?.customer_pays || result.totals?.total_inc_vat || 0, { ...result, categories });
-    if (sbId) setSupabaseId(localId, sbId);
+    if (sbId) {
+  setSupabaseId(localId, sbId);
+  if (Object.keys(allEdits).length > 0) {
+    await writeCraftsmanEdits(sbId, allEdits);
+  }
+}
     setSavingDraft(false); setShowDraftModal(false); setSaved(true);
   }
 
@@ -261,6 +286,9 @@ function EstimateInner() {
     const t = result.totals || {};
     const { id, error: sbErr } = await saveQuoteToSupabase(pendingSendName || result.job_title || description, result.job_summary || description, customerName, customerEmail, t.total_inc_vat || 0, t.customer_pays || t.total_inc_vat || 0, { ...result, categories }, settings);
     if (sbErr || !id) { alert("Kunde inte spara offert: " + (sbErr || "Okänt fel")); setSending(false); return; }
+    if (Object.keys(allEdits).length > 0) {
+  await writeCraftsmanEdits(id, allEdits);
+}
     const acceptUrl = `${window.location.origin}/accept?id=${id}`;
     const companyName = settings.company_name || "Vi";
     const subj = `Offert: ${pendingSendName || result.job_title || "Kalkyl"} — ${companyName}`;
