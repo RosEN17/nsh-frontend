@@ -7,6 +7,7 @@ import Header from "@/components/Header";
 import { createEstimate } from "@/lib/api";
 import { saveEstimate, getEstimates, setSupabaseId } from "@/lib/store";
 import { saveQuoteToSupabase, saveDraftToSupabase } from "@/lib/quotes";
+import EditableRow from "@/components/EditableRow";
 
 // ── Jobbtyper ────────────────────────────────────────────────────────────────
 const JOB_TYPES = [
@@ -212,9 +213,13 @@ function fmtKr(n: number): string {
 }
 
 function getSettings() {
-  if (typeof window === "undefined") return {};
+  if (typeof window === "undefined") return {} as any;
   try { return JSON.parse(localStorage.getItem("byggkalk_settings") || "{}"); } catch { return {}; }
 }
+
+// Typ för allEdits-objektet
+type EditEntry = { ai: string | number; final: string | number; reason: string };
+type AllEdits = Record<string, EditEntry>;
 
 function generateQuoteHTML(result: any, settings: any) {
   const t = result.totals || {};
@@ -225,7 +230,6 @@ function generateQuoteHTML(result: any, settings: any) {
   const companyName = settings.company_name || "Företagsnamn";
   const hourlyRate = result.meta?.hourly_rate || settings.hourly_rate || 650;
 
-  // ── Tabellrader ─────────────────────────────────────────
   let rowsHTML = "";
   for (const cat of result.categories || []) {
     rowsHTML += `<tr style="background:#f5f5f5"><td colspan="5" style="padding:10px 12px;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:0.6px;border-bottom:1px solid #e0e0e0;color:#444">${cat.name}</td></tr>`;
@@ -241,7 +245,6 @@ function generateQuoteHTML(result: any, settings: any) {
     rowsHTML += `<tr style="background:#fafafa"><td colspan="4" style="padding:8px 12px;text-align:right;font-weight:600;font-size:11px;border-bottom:2px solid #ddd;color:#555">Delsumma</td><td style="padding:8px 12px;text-align:right;font-weight:700;font-size:12px;font-family:'Courier New',monospace;border-bottom:2px solid #ddd">${fmtKr(cat.subtotal)}</td></tr>`;
   }
 
-  // ── Logotyp & info ──────────────────────────────────────
   const logoHTML = settings.logo_base64
     ? `<img src="${settings.logo_base64}" style="max-height:55px;max-width:180px;object-fit:contain" />`
     : `<div style="font-size:22px;font-weight:800;color:#1a1a1a;letter-spacing:-0.5px">${companyName}</div>`;
@@ -254,18 +257,9 @@ function generateQuoteHTML(result: any, settings: any) {
     settings.website,
   ].filter(Boolean);
 
-  const paymentParts = [
-    settings.bankgiro ? `Bankgiro: ${settings.bankgiro}` : "",
-    settings.plusgiro ? `Plusgiro: ${settings.plusgiro}` : "",
-    settings.iban ? `IBAN: ${settings.iban}` : "",
-    settings.f_skatt ? "Godkänd för F-skatt" : "",
-  ].filter(Boolean);
-
-  // ── Anbudstext ──────────────────────────────────────────
   const anbudsText = settings.quote_intro ||
     "Vi tackar för er förfrågan och erbjuder oss härmed att utföra arbeten på rubricerat projekt i enlighet med erhållet förfrågningsunderlag/platsbesök";
 
-  // ── Förutsättningar ─────────────────────────────────────
   const defaultPrereqs = [
     "Att fri framkomlighet finns och att störande arbete kan utföras dagtid 07.00–17.00",
     "Att ni fritt tillhandahåller el och vatten",
@@ -276,7 +270,6 @@ function generateQuoteHTML(result: any, settings: any) {
     ? settings.quote_prerequisites.split("\n").filter(Boolean)
     : defaultPrereqs;
 
-  // ── Reservationer ───────────────────────────────────────
   const defaultReservations = [
     "Byggström tillhandahålls av byggherren",
     "Anslutningsavgifter samt utsättning ingår ej",
@@ -307,16 +300,12 @@ function generateQuoteHTML(result: any, settings: any) {
 </style>
 </head>
 <body>
-
-<!-- ══ HEADER ══ -->
 <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;padding-bottom:18px;border-bottom:3px solid #6a8193">
   <div>
     ${logoHTML}
     ${settings.logo_base64 && companyName ? `<div style="font-size:11px;color:#555;margin-top:5px;font-weight:600">${companyName}</div>` : ""}
     ${settings.org_number ? `<div style="font-size:10px;color:#888;margin-top:1px">Org.nr: ${settings.org_number}</div>` : ""}
-    <div style="font-size:10px;color:#888;margin-top:2px;line-height:1.7">
-      ${companyInfoLines.join("<br>")}
-    </div>
+    <div style="font-size:10px;color:#888;margin-top:2px;line-height:1.7">${companyInfoLines.join("<br>")}</div>
   </div>
   <div style="text-align:right">
     <div style="font-size:26px;font-weight:800;color:#6a8193;letter-spacing:1px">OFFERT</div>
@@ -328,14 +317,10 @@ function generateQuoteHTML(result: any, settings: any) {
     </div>
   </div>
 </div>
-
-<!-- ══ KUND ══ -->
 <div style="display:flex;gap:40px;margin-bottom:24px">
   <div style="flex:1;padding:14px 16px;border:1px dashed #ccc;border-radius:4px;font-size:12px;color:#999">
     <div style="font-weight:700;color:#666;margin-bottom:8px">KUND</div>
-    Namn: ________________________________<br><br>
-    Adress: ________________________________<br><br>
-    Telefon: ________________________________
+    Namn: ________________________________<br><br>Adress: ________________________________<br><br>Telefon: ________________________________
   </div>
   <div style="flex:1;padding:14px 16px;background:#f9f9f9;border-radius:4px;font-size:12px">
     <div style="font-weight:700;color:#666;margin-bottom:8px">AVSER</div>
@@ -343,19 +328,12 @@ function generateQuoteHTML(result: any, settings: any) {
     <div style="color:#666;line-height:1.5">${result.job_summary || ""}</div>
   </div>
 </div>
-
-<!-- ══ INLEDNING & FÖRUTSÄTTNINGAR ══ -->
 <div class="section">
   <p style="margin:0 0 14px;color:#333;line-height:1.7">${anbudsText}</p>
   <p style="margin:0 0 6px;font-weight:700;color:#1a1a1a">Anbudssumma förutsätter:</p>
-  <ul style="margin:0;padding-left:20px;color:#333;line-height:1.9">
-    ${prereqLines.map((l: string) => `<li>${l}</li>`).join("")}
-  </ul>
+  <ul style="margin:0;padding-left:20px;color:#333;line-height:1.9">${prereqLines.map((l: string) => `<li>${l}</li>`).join("")}</ul>
 </div>
-
 <hr class="divider">
-
-<!-- ══ KALKYLRADER ══ -->
 <div class="section">
   <h2>Specifikation</h2>
   <table style="margin-bottom:20px">
@@ -370,8 +348,6 @@ function generateQuoteHTML(result: any, settings: any) {
     </thead>
     <tbody>${rowsHTML}</tbody>
   </table>
-
-  <!-- Summering -->
   <div style="max-width:360px;margin-left:auto">
     <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;color:#666;border-bottom:1px solid #eee"><span>Material</span><span style="font-family:'Courier New',monospace">${fmtKr(t.material_total || 0)}</span></div>
     <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;color:#666;border-bottom:1px solid #eee"><span>Arbete</span><span style="font-family:'Courier New',monospace">${fmtKr(t.labor_total || 0)}</span></div>
@@ -380,113 +356,37 @@ function generateQuoteHTML(result: any, settings: any) {
     <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;color:#666;border-bottom:1px solid #eee"><span>Summa exkl. moms</span><span style="font-family:'Courier New',monospace">${fmtKr(t.total_ex_vat || 0)}</span></div>
     <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;color:#666;border-bottom:1px solid #eee"><span>Moms 25%</span><span style="font-family:'Courier New',monospace">${fmtKr(t.vat || 0)}</span></div>
     <div style="display:flex;justify-content:space-between;padding:12px 0;font-size:18px;font-weight:800;border-top:2px solid #1a1a1a;margin-top:4px"><span>Totalt inkl. moms</span><span style="font-family:'Courier New',monospace">${fmtKr(t.total_inc_vat || 0)}</span></div>
-    ${t.rot_deduction ? `
-    <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;color:#16a34a"><span>ROT-avdrag (30% på arbete)</span><span style="font-family:'Courier New',monospace">−${fmtKr(t.rot_deduction)}</span></div>
-    <div style="display:flex;justify-content:space-between;padding:10px 0;font-size:18px;font-weight:800;color:#16a34a;border-top:2px solid #16a34a;margin-top:4px"><span>Att betala</span><span style="font-family:'Courier New',monospace">${fmtKr(t.customer_pays || t.total_inc_vat || 0)}</span></div>
-    ` : ""}
+    ${t.rot_deduction ? `<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;color:#16a34a"><span>ROT-avdrag (30% på arbete)</span><span style="font-family:'Courier New',monospace">−${fmtKr(t.rot_deduction)}</span></div><div style="display:flex;justify-content:space-between;padding:10px 0;font-size:18px;font-weight:800;color:#16a34a;border-top:2px solid #16a34a;margin-top:4px"><span>Att betala</span><span style="font-family:'Courier New',monospace">${fmtKr(t.customer_pays || t.total_inc_vat || 0)}</span></div>` : ""}
   </div>
 </div>
-
 ${result.estimated_days ? `<div style="padding:10px 16px;background:#f0f9ff;border-left:3px solid #3b82f6;font-size:12px;color:#1e40af;margin-bottom:16px">Uppskattad tidsåtgång: ca ${result.estimated_days} arbetsdagar</div>` : ""}
-
 <hr class="divider">
-
-<!-- ══ RESERVATIONER ══ -->
 <div class="section">
   <p style="margin:0 0 6px;font-weight:700;color:#1a1a1a">Reservationer:</p>
-  <ul style="margin:0;padding-left:20px;color:#333;line-height:1.9">
-    ${reservationLines.map((l: string) => `<li>${l}</li>`).join("")}
-  </ul>
+  <ul style="margin:0;padding-left:20px;color:#333;line-height:1.9">${reservationLines.map((l: string) => `<li>${l}</li>`).join("")}</ul>
 </div>
-
 <hr class="divider">
-
-<!-- ══ FÖRUTSÄTTNINGAR & VILLKOR ══ -->
 <div class="section">
   <h2>Förutsättningar &amp; villkor</h2>
-
-  <div style="margin-bottom:14px">
-    <div class="label">Betalningsvillkor</div>
-    <div>${settings.payment_terms || "30 dagar."}</div>
-  </div>
-
-  <div style="margin-bottom:14px">
-    <div class="label">Offertens giltighetstid</div>
-    <div>Offertens giltighetstid gäller ${validDays} dagar från ovanstående datum.</div>
-  </div>
-
-  <div style="margin-bottom:14px">
-    <div class="label">Tillkommande arbeten</div>
-    <div>
-      Arbetad tid debiteras med ${hourlyRate.toLocaleString("sv-SE")},00 exkl. moms<br>
-      Underentreprenörers arbeten debiteras mot redovisad kostnad +12%<br>
-      Material debiteras mot redovisad kostnad +12%
-    </div>
-  </div>
-
-  ${settings.quote_footer ? `
-  <div style="margin-bottom:14px">
-    <div class="label">Övriga villkor</div>
-    <div>${settings.quote_footer.replace(/\n/g, "<br>")}</div>
-  </div>` : ""}
-
-  <div style="margin-bottom:14px">
-    <div class="label">Personuppgifter</div>
-    <div style="color:#444;line-height:1.7">
-      Vid godkännande av denna offert accepterar du att vi behandlar dina personuppgifter för att kunna fullfölja vårt åtagande gentemot dig som kund.
-      Den information vi behandlar för er är information som berörs och är nödvändig för byggprojektets administration.
-      Personuppgifterna lagras och hanteras med tekniska och organisatoriska säkerhetsåtgärder för att skydda hanteringen av personuppgifter
-      och lever upp till de krav som ställs enligt EU:s dataskyddsförordning (GDPR).
-      <br><br>
-      Vi kommer om ni begär det att radera eller anonymisera och oavsett anledning därtill, inklusive att radera samtliga kopior som inte enligt GDPR
-      måste sparas. Vi kommer inte att överföra personuppgifter till land utanför EU/ESS.
-    </div>
-  </div>
+  <div style="margin-bottom:14px"><div class="label">Betalningsvillkor</div><div>${settings.payment_terms || "30 dagar."}</div></div>
+  <div style="margin-bottom:14px"><div class="label">Offertens giltighetstid</div><div>Offertens giltighetstid gäller ${validDays} dagar från ovanstående datum.</div></div>
+  <div style="margin-bottom:14px"><div class="label">Tillkommande arbeten</div><div>Arbetad tid debiteras med ${hourlyRate.toLocaleString("sv-SE")},00 exkl. moms<br>Underentreprenörers arbeten debiteras mot redovisad kostnad +12%<br>Material debiteras mot redovisad kostnad +12%</div></div>
+  ${settings.quote_footer ? `<div style="margin-bottom:14px"><div class="label">Övriga villkor</div><div>${settings.quote_footer.replace(/\n/g, "<br>")}</div></div>` : ""}
+  <div style="margin-bottom:14px"><div class="label">Personuppgifter</div><div style="color:#444;line-height:1.7">Vid godkännande av denna offert accepterar du att vi behandlar dina personuppgifter för att kunna fullfölja vårt åtagande gentemot dig som kund. Personuppgifterna lagras och hanteras med tekniska och organisatoriska säkerhetsåtgärder och lever upp till GDPR. Vi kommer inte att överföra personuppgifter till land utanför EU/ESS.</div></div>
 </div>
-
 <hr class="divider">
-
-<!-- ══ UNDERSKRIFTER ══ -->
 <div style="display:flex;justify-content:space-between;margin-bottom:32px">
-  <div style="width:45%">
-    <div style="font-size:11px;color:#888;margin-bottom:36px">Leverantör</div>
-    <div style="border-top:1px solid #bbb;padding-top:8px;font-size:12px;color:#444">
-      ${settings.contact_name || companyName}${settings.contact_title ? `<br>${settings.contact_title}` : ""}
-    </div>
-  </div>
-  <div style="width:45%">
-    <div style="font-size:11px;color:#888;margin-bottom:36px">Kund (godkännande)</div>
-    <div style="border-top:1px solid #bbb;padding-top:8px;font-size:12px;color:#888">
-      Namn: ________________________<br>
-      Datum: ________________________
-    </div>
-  </div>
+  <div style="width:45%"><div style="font-size:11px;color:#888;margin-bottom:36px">Leverantör</div><div style="border-top:1px solid #bbb;padding-top:8px;font-size:12px;color:#444">${settings.contact_name || companyName}${settings.contact_title ? `<br>${settings.contact_title}` : ""}</div></div>
+  <div style="width:45%"><div style="font-size:11px;color:#888;margin-bottom:36px">Kund (godkännande)</div><div style="border-top:1px solid #bbb;padding-top:8px;font-size:12px;color:#888">Namn: ________________________<br>Datum: ________________________</div></div>
 </div>
-
-<!-- ══ SIDFOT — FÖRETAGSUPPGIFTER ══ -->
 <div style="border-top:2px solid #6a8193;padding-top:16px;margin-top:8px">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;font-size:11px;color:#555">
-    <div>
-      <div style="font-weight:700;color:#1a1a1a;font-size:12px;margin-bottom:4px">${companyName}</div>
-      ${settings.org_number ? `<div>Org.nr: ${settings.org_number}</div>` : ""}
-      ${settings.f_skatt ? `<div>Godkänd för F-skatt</div>` : ""}
-      ${settings.address ? `<div>${settings.address}${settings.zip_city ? `, ${settings.zip_city}` : ""}</div>` : ""}
-    </div>
-    <div style="text-align:center">
-      ${settings.phone ? `<div>Tel: ${settings.phone}</div>` : ""}
-      ${settings.email ? `<div>${settings.email}</div>` : ""}
-      ${settings.website ? `<div>${settings.website}</div>` : ""}
-    </div>
-    <div style="text-align:right">
-      ${settings.bankgiro ? `<div>Bankgiro: ${settings.bankgiro}</div>` : ""}
-      ${settings.plusgiro ? `<div>Plusgiro: ${settings.plusgiro}</div>` : ""}
-      ${settings.iban ? `<div>IBAN: ${settings.iban}</div>` : ""}
-    </div>
+    <div><div style="font-weight:700;color:#1a1a1a;font-size:12px;margin-bottom:4px">${companyName}</div>${settings.org_number ? `<div>Org.nr: ${settings.org_number}</div>` : ""}${settings.f_skatt ? `<div>Godkänd för F-skatt</div>` : ""}${settings.address ? `<div>${settings.address}${settings.zip_city ? `, ${settings.zip_city}` : ""}</div>` : ""}</div>
+    <div style="text-align:center">${settings.phone ? `<div>Tel: ${settings.phone}</div>` : ""}${settings.email ? `<div>${settings.email}</div>` : ""}${settings.website ? `<div>${settings.website}</div>` : ""}</div>
+    <div style="text-align:right">${settings.bankgiro ? `<div>Bankgiro: ${settings.bankgiro}</div>` : ""}${settings.plusgiro ? `<div>Plusgiro: ${settings.plusgiro}</div>` : ""}${settings.iban ? `<div>IBAN: ${settings.iban}</div>` : ""}</div>
   </div>
 </div>
-
-</body>
-</html>`;
+</body></html>`;
 }
 
 // ── Namnmodal ─────────────────────────────────────────────────────────────────
@@ -519,33 +419,24 @@ function EstimateInner() {
   const searchParams = useSearchParams();
   const viewId = searchParams.get("view");
 
-  // Steg
   const [step, setStep] = useState<"input" | "loading" | "result">("input");
-
-  // Jobbtyp
   const [jobType, setJobType] = useState("badrum");
-
-  // Dynamiska fältvärden: { [key]: value }
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
-  // Dynamiska check-värden: { [key]: boolean }
   const [checkValues, setCheckValues] = useState<Record<string, boolean>>({});
-
-  // Fritext-beskrivning
   const [description, setDescription] = useState("");
-
-  // Kalkylparametrar
   const [hourlyRate, setHourlyRate] = useState("650");
   const [marginPct, setMarginPct] = useState("15");
   const [includeRot, setIncludeRot] = useState(true);
-
-  // Resultat
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState("");
   const [loadingMsg, setLoadingMsg] = useState("");
   const [saved, setSaved] = useState(false);
   const [showSources, setShowSources] = useState(false);
 
-  // Mail
+  // ── NY: allEdits och editedTotals för feedback-loopen ──
+  const [allEdits, setAllEdits] = useState<AllEdits>({});
+  const [editedTotals, setEditedTotals] = useState<Record<string, number>>({});
+
   const [showMailModal, setShowMailModal] = useState(false);
   const [mailStep, setMailStep] = useState<"form" | "choose">("form");
   const [customerName, setCustomerName] = useState("");
@@ -555,19 +446,14 @@ function EstimateInner() {
   const [mailSubject, setMailSubject] = useState("");
   const [mailBody, setMailBody] = useState("");
   const [pendingSendName, setPendingSendName] = useState("");
-
-  // Namnmodaler
   const [showDraftModal, setShowDraftModal] = useState(false);
   const [showSendModal, setShowSendModal] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
   const [localId] = useState(() => crypto.randomUUID());
-
-  // Filuploads
   const [pdfFiles, setPdfFiles] = useState<File[]>([]);
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [drawingFiles, setDrawingFiles] = useState<File[]>([]);
 
-  // Initiera fält när jobbtyp ändras
   useEffect(() => {
     const params = JOB_PARAMS[jobType];
     const fv: Record<string, string> = {};
@@ -578,7 +464,6 @@ function EstimateInner() {
     setCheckValues(cv);
   }, [jobType]);
 
-  // Ladda settings
   useEffect(() => {
     const s = getSettings();
     if (s.hourly_rate) setHourlyRate(String(s.hourly_rate));
@@ -586,7 +471,6 @@ function EstimateInner() {
     if (s.include_rot !== undefined) setIncludeRot(s.include_rot);
   }, []);
 
-  // Visa befintlig kalkyl via ?view=id
   useEffect(() => {
     if (viewId) {
       const estimates = getEstimates();
@@ -601,29 +485,25 @@ function EstimateInner() {
     }
   }, [viewId]);
 
-  // Bygg build_params-objekt att skicka till AI
+  // Nollställ edits när ny kalkyl genereras
+  useEffect(() => {
+    if (step === "result") {
+      setAllEdits({});
+      setEditedTotals({});
+    }
+  }, [result]);
+
   function buildAiParams(): Record<string, string> {
     const params = JOB_PARAMS[jobType];
     const out: Record<string, string> = {};
-
-    // Lägg till alla fältvärden
     params.fields.forEach(f => {
       const v = fieldValues[f.key];
       if (v) out[f.key] = f.unit ? `${v} ${f.unit}` : v;
     });
-
-    // Lägg till checkboxar som är på
-    const checkedLabels = params.checks
-      .filter(c => checkValues[c.key])
-      .map(c => c.label);
-    if (checkedLabels.length > 0) {
-      out["ingår_i_jobbet"] = checkedLabels.join(", ");
-    }
-
-    // Lägg till jobbtyp-label
+    const checkedLabels = params.checks.filter(c => checkValues[c.key]).map(c => c.label);
+    if (checkedLabels.length > 0) out["ingår_i_jobbet"] = checkedLabels.join(", ");
     const jtLabel = JOB_TYPES.find(j => j.id === jobType)?.label || jobType;
     out["jobbtyp"] = jtLabel;
-
     return out;
   }
 
@@ -634,7 +514,6 @@ function EstimateInner() {
     "Bygger din kalkyl...",
   ];
 
-  // Konvertera en File till base64 data-URL
   function fileToBase64(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -653,39 +532,13 @@ function EstimateInner() {
       msgIdx = Math.min(msgIdx + 1, loadingMessages.length - 1);
       setLoadingMsg(loadingMessages[msgIdx]);
     }, 2000);
-
     const location = fieldValues["location"] || "";
     const buildParams = buildAiParams();
-
     try {
-      // Konvertera projektbilder till base64
-      const imagePayload = await Promise.all(
-        imageFiles.map(async (f) => ({
-          name: f.name,
-          data: await fileToBase64(f),
-        }))
-      );
-
-      // Konvertera PDF-underlag till base64
-      const pdfPayload = await Promise.all(
-        pdfFiles.map(async (f) => ({
-          name: f.name,
-          data: await fileToBase64(f),
-        }))
-      );
-
-      // Konvertera ritningar — bilder skickas som images, PDFs som documents
-      const drawingImages = await Promise.all(
-        drawingFiles
-          .filter((f) => !f.name.toLowerCase().endsWith(".pdf"))
-          .map(async (f) => ({ name: f.name, data: await fileToBase64(f) }))
-      );
-      const drawingPdfs = await Promise.all(
-        drawingFiles
-          .filter((f) => f.name.toLowerCase().endsWith(".pdf"))
-          .map(async (f) => ({ name: f.name, data: await fileToBase64(f) }))
-      );
-
+      const imagePayload = await Promise.all(imageFiles.map(async f => ({ name: f.name, data: await fileToBase64(f) })));
+      const pdfPayload = await Promise.all(pdfFiles.map(async f => ({ name: f.name, data: await fileToBase64(f) })));
+      const drawingImages = await Promise.all(drawingFiles.filter(f => !f.name.toLowerCase().endsWith(".pdf")).map(async f => ({ name: f.name, data: await fileToBase64(f) })));
+      const drawingPdfs = await Promise.all(drawingFiles.filter(f => f.name.toLowerCase().endsWith(".pdf")).map(async f => ({ name: f.name, data: await fileToBase64(f) })));
       const data = await createEstimate({
         description: description.trim(),
         job_type: jobType,
@@ -763,6 +616,7 @@ function EstimateInner() {
 
   function handleReset() {
     setStep("input"); setResult(null); setDescription(""); setSaved(false); setShowSources(false);
+    setAllEdits({}); setEditedTotals({});
     window.history.replaceState(null, "", "/estimate");
   }
 
@@ -770,6 +624,11 @@ function EstimateInner() {
     if (row.type === "labor") return `Ditt timpris (${result?.meta?.hourly_rate || 650} kr/h)`;
     if (row.type === "equipment") return "Uppskattat hyrespris";
     return "Uppskattat marknadspris (2025–2026)";
+  }
+
+  // Hjälpfunktion: hämta justerat värde eller AI-värde
+  function getVal(key: string, aiVal: number): number {
+    return editedTotals[key] ?? aiVal;
   }
 
   // ── INPUT ──────────────────────────────────────────────────────────────────
@@ -781,49 +640,20 @@ function EstimateInner() {
       <ProtectedLayout>
         <Header title="Ny kalkyl" subtitle="Beskriv jobbet — AI:n räknar ut resten" />
 
-        {/* Jobbtyp */}
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="card-title" style={{ marginBottom: 10 }}>Jobbtyp</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 7 }}>
             {JOB_TYPES.map(jt => (
-              <button
-                key={jt.id}
-                onClick={() => setJobType(jt.id)}
-                style={{
-                  background: jobType === jt.id ? "rgba(106,129,147,0.12)" : "var(--bg-surface)",
-                  border: `0.5px solid ${jobType === jt.id ? "rgba(106,129,147,0.5)" : "var(--border)"}`,
-                  borderRadius: "var(--radius)",
-                  padding: "10px 6px 8px",
-                  textAlign: "center",
-                  cursor: "pointer",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 5,
-                  transition: "all 0.12s",
-                }}
-              >
-                <div style={{
-                  width: 28, height: 28, borderRadius: 6,
-                  background: jobType === jt.id ? "rgba(106,129,147,0.2)" : "rgba(255,255,255,0.04)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  color: jobType === jt.id ? "#6a8193" : "var(--text-faint)",
-                }}>
-                  {jt.icon}
-                </div>
-                <span style={{ fontSize: 11, color: jobType === jt.id ? "#8aaabb" : "var(--text-muted)", fontWeight: jobType === jt.id ? 500 : 400 }}>
-                  {jt.label}
-                </span>
+              <button key={jt.id} onClick={() => setJobType(jt.id)} style={{ background: jobType === jt.id ? "rgba(106,129,147,0.12)" : "var(--bg-surface)", border: `0.5px solid ${jobType === jt.id ? "rgba(106,129,147,0.5)" : "var(--border)"}`, borderRadius: "var(--radius)", padding: "10px 6px 8px", textAlign: "center", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 5, transition: "all 0.12s" }}>
+                <div style={{ width: 28, height: 28, borderRadius: 6, background: jobType === jt.id ? "rgba(106,129,147,0.2)" : "rgba(255,255,255,0.04)", display: "flex", alignItems: "center", justifyContent: "center", color: jobType === jt.id ? "#6a8193" : "var(--text-faint)" }}>{jt.icon}</div>
+                <span style={{ fontSize: 11, color: jobType === jt.id ? "#8aaabb" : "var(--text-muted)", fontWeight: jobType === jt.id ? 500 : 400 }}>{jt.label}</span>
               </button>
             ))}
           </div>
         </div>
 
-        {/* Smarta parametrar */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "1.2px", color: "var(--text-faint)", textTransform: "uppercase" }}>
-            Smarta parametrar — {jtLabel}
-          </div>
+          <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "1.2px", color: "var(--text-faint)", textTransform: "uppercase" }}>Smarta parametrar — {jtLabel}</div>
           <div style={{ flex: 1, height: "0.5px", background: "var(--border)" }} />
         </div>
 
@@ -833,31 +663,17 @@ function EstimateInner() {
         </div>
 
         <div className="card" style={{ marginBottom: 16 }}>
-          {/* Fält */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: params.checks.length ? 14 : 0 }}>
             {params.fields.map(f => (
               <div key={f.key} style={{ background: "var(--bg-surface)", border: "0.5px solid var(--border)", borderRadius: "var(--radius)", padding: "10px 12px" }}>
-                <div style={{ fontSize: 10, fontWeight: 600, color: "var(--text-faint)", letterSpacing: "0.5px", textTransform: "uppercase", marginBottom: 7 }}>
-                  {f.label}
-                </div>
+                <div style={{ fontSize: 10, fontWeight: 600, color: "var(--text-faint)", letterSpacing: "0.5px", textTransform: "uppercase", marginBottom: 7 }}>{f.label}</div>
                 {f.type === "select" ? (
-                  <select
-                    className="input"
-                    style={{ width: "100%", padding: "6px 8px", fontSize: 13 }}
-                    value={fieldValues[f.key] || f.defaultVal}
-                    onChange={e => setFieldValues(prev => ({ ...prev, [f.key]: e.target.value }))}
-                  >
+                  <select className="input" style={{ width: "100%", padding: "6px 8px", fontSize: 13 }} value={fieldValues[f.key] || f.defaultVal} onChange={e => setFieldValues(prev => ({ ...prev, [f.key]: e.target.value }))}>
                     {(f.options || []).map(o => <option key={o} value={o}>{o}</option>)}
                   </select>
                 ) : (
                   <div style={{ display: "flex", alignItems: "center", background: "var(--bg-elevated)", border: "0.5px solid var(--border)", borderRadius: "var(--radius)", padding: "6px 10px" }}>
-                    <input
-                      type={f.type === "number" ? "number" : "text"}
-                      placeholder={f.type === "number" ? "0" : "—"}
-                      value={fieldValues[f.key] ?? f.defaultVal}
-                      onChange={e => setFieldValues(prev => ({ ...prev, [f.key]: e.target.value }))}
-                      style={{ background: "none", border: "none", outline: "none", fontSize: 13, color: "var(--text-primary)", width: "100%", minWidth: 0 }}
-                    />
+                    <input type={f.type === "number" ? "number" : "text"} placeholder={f.type === "number" ? "0" : "—"} value={fieldValues[f.key] ?? f.defaultVal} onChange={e => setFieldValues(prev => ({ ...prev, [f.key]: e.target.value }))} style={{ background: "none", border: "none", outline: "none", fontSize: 13, color: "var(--text-primary)", width: "100%", minWidth: 0 }} />
                     {f.unit && <span style={{ fontSize: 11, color: "var(--text-faint)", marginLeft: 4, flexShrink: 0 }}>{f.unit}</span>}
                   </div>
                 )}
@@ -866,44 +682,24 @@ function EstimateInner() {
             ))}
           </div>
 
-          {/* Checkboxar */}
           {params.checks.length > 0 && (
             <>
               <div style={{ height: "0.5px", background: "var(--border)", marginBottom: 10 }} />
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                <div style={{ fontSize: 10, fontWeight: 600, color: "var(--text-faint)", letterSpacing: "1px", textTransform: "uppercase" }}>
-                  Ingår i jobbet
-                </div>
-                {/* Ritningar upload */}
-                <label style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", background: "var(--bg-surface)", border: "0.5px solid var(--border)", borderRadius: "var(--radius)", padding: "4px 10px", fontSize: 11, color: "var(--text-muted)", transition: "border-color 0.12s" }}
-                  onMouseEnter={e => (e.currentTarget.style.borderColor = "rgba(106,129,147,0.5)")}
-                  onMouseLeave={e => (e.currentTarget.style.borderColor = "var(--border)")}>
-                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-                    <path d="M2 14V10M14 14V10M8 2v8M5 5l3-3 3 3" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M2 14h12" strokeLinecap="round"/>
-                  </svg>
+                <div style={{ fontSize: 10, fontWeight: 600, color: "var(--text-faint)", letterSpacing: "1px", textTransform: "uppercase" }}>Ingår i jobbet</div>
+                <label style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", background: "var(--bg-surface)", border: "0.5px solid var(--border)", borderRadius: "var(--radius)", padding: "4px 10px", fontSize: 11, color: "var(--text-muted)", transition: "border-color 0.12s" }} onMouseEnter={e => (e.currentTarget.style.borderColor = "rgba(106,129,147,0.5)")} onMouseLeave={e => (e.currentTarget.style.borderColor = "var(--border)")}>
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M2 14V10M14 14V10M8 2v8M5 5l3-3 3 3" strokeLinecap="round" strokeLinejoin="round"/><path d="M2 14h12" strokeLinecap="round"/></svg>
                   <span>Ladda upp ritningar</span>
-                  {drawingFiles.length > 0 && (
-                    <span style={{ background: "rgba(106,129,147,0.2)", color: "#6a8193", borderRadius: 10, padding: "1px 6px", fontSize: 10, fontWeight: 600, marginLeft: 2 }}>
-                      {drawingFiles.length}
-                    </span>
-                  )}
-                  <input type="file" accept=".pdf,.png,.jpg,.jpeg,.dwg,.dxf" multiple style={{ display: "none" }}
-                    onChange={e => {
-                      const files = Array.from(e.target.files || []);
-                      setDrawingFiles(prev => [...prev, ...files]);
-                      e.target.value = "";
-                    }} />
+                  {drawingFiles.length > 0 && <span style={{ background: "rgba(106,129,147,0.2)", color: "#6a8193", borderRadius: 10, padding: "1px 6px", fontSize: 10, fontWeight: 600, marginLeft: 2 }}>{drawingFiles.length}</span>}
+                  <input type="file" accept=".pdf,.png,.jpg,.jpeg,.dwg,.dxf" multiple style={{ display: "none" }} onChange={e => { const files = Array.from(e.target.files || []); setDrawingFiles(prev => [...prev, ...files]); e.target.value = ""; }} />
                 </label>
               </div>
               {drawingFiles.length > 0 && (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 8 }}>
                   {drawingFiles.map((f, i) => (
                     <div key={i} style={{ display: "flex", alignItems: "center", gap: 4, background: "var(--bg-surface)", border: "0.5px solid var(--border)", borderRadius: "var(--radius)", padding: "3px 8px", fontSize: 11, color: "var(--text-muted)" }}>
-                      <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4"><rect x="2" y="1" width="10" height="13" rx="1.5"/><path d="M5 5h6M5 8h6M5 11h4" strokeLinecap="round"/></svg>
                       <span style={{ maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</span>
-                      <button onClick={() => setDrawingFiles(prev => prev.filter((_, j) => j !== i))}
-                        style={{ background: "none", border: "none", color: "var(--text-faint)", cursor: "pointer", padding: 0, lineHeight: 1, fontSize: 13 }}>×</button>
+                      <button onClick={() => setDrawingFiles(prev => prev.filter((_, j) => j !== i))} style={{ background: "none", border: "none", color: "var(--text-faint)", cursor: "pointer", padding: 0, lineHeight: 1, fontSize: 13 }}>×</button>
                     </div>
                   ))}
                 </div>
@@ -911,24 +707,10 @@ function EstimateInner() {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
                 {params.checks.map(c => (
                   <label key={c.key} style={{ display: "flex", alignItems: "center", gap: 9, cursor: "pointer", padding: "6px 0" }}>
-                    <div
-                      onClick={() => setCheckValues(prev => ({ ...prev, [c.key]: !prev[c.key] }))}
-                      style={{
-                        width: 16, height: 16, borderRadius: 4, flexShrink: 0,
-                        border: `0.5px solid ${checkValues[c.key] ? "rgba(106,129,147,0.6)" : "var(--border)"}`,
-                        background: checkValues[c.key] ? "rgba(106,129,147,0.18)" : "transparent",
-                        display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
-                      }}
-                    >
-                      {checkValues[c.key] && (
-                        <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                          <path d="M2 5l2.5 2.5L8 3" stroke="#6a8193" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
-                      )}
+                    <div onClick={() => setCheckValues(prev => ({ ...prev, [c.key]: !prev[c.key] }))} style={{ width: 16, height: 16, borderRadius: 4, flexShrink: 0, border: `0.5px solid ${checkValues[c.key] ? "rgba(106,129,147,0.6)" : "var(--border)"}`, background: checkValues[c.key] ? "rgba(106,129,147,0.18)" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                      {checkValues[c.key] && <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="#6a8193" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                     </div>
-                    <span style={{ fontSize: 12, color: checkValues[c.key] ? "var(--text-secondary)" : "var(--text-muted)" }}>
-                      {c.label}
-                    </span>
+                    <span style={{ fontSize: 12, color: checkValues[c.key] ? "var(--text-secondary)" : "var(--text-muted)" }}>{c.label}</span>
                   </label>
                 ))}
               </div>
@@ -936,127 +718,58 @@ function EstimateInner() {
           )}
         </div>
 
-        {/* Jobbeskrivning */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, marginTop: 4 }}>
           <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "1.2px", color: "var(--text-faint)", textTransform: "uppercase" }}>Jobbeskrivning</div>
           <div style={{ flex: 1, height: "0.5px", background: "var(--border)" }} />
         </div>
         <div className="card" style={{ marginBottom: 16 }}>
-          <textarea
-            className="input textarea"
-            placeholder={`Beskriv jobbet i fritext. T.ex: Badrumsrenovering ca 6 kvm. Riva befintligt kakel golv och väggar. Nytt tätskikt, klinker på golv (60×60), kakel på väggar (30×60). Ny dusch med glasvägg, ny toalett och handfat.`}
-            value={description}
-            onChange={e => setDescription(e.target.value)}
-            rows={4}
-          />
+          <textarea className="input textarea" placeholder="Beskriv jobbet i fritext. T.ex: Badrumsrenovering ca 6 kvm. Riva befintligt kakel golv och väggar. Nytt tätskikt, klinker på golv (60×60), kakel på väggar (30×60). Ny dusch med glasvägg, ny toalett och handfat." value={description} onChange={e => setDescription(e.target.value)} rows={4} />
           {error && <div className="login-error" style={{ marginTop: 10 }}>{error}</div>}
-
-          {/* Filuppladdning — underlag och bilder */}
           <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-            {/* PDF med underlag */}
-            <label style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, cursor: "pointer", background: "var(--bg-surface)", border: `0.5px solid ${pdfFiles.length > 0 ? "rgba(106,129,147,0.5)" : "var(--border)"}`, borderRadius: "var(--radius)", padding: "8px 12px", fontSize: 12, color: pdfFiles.length > 0 ? "#8aaabb" : "var(--text-muted)", transition: "all 0.12s" }}
-              onMouseEnter={e => (e.currentTarget.style.borderColor = "rgba(106,129,147,0.5)")}
-              onMouseLeave={e => (e.currentTarget.style.borderColor = pdfFiles.length > 0 ? "rgba(106,129,147,0.5)" : "var(--border)")}>
-              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-                <rect x="2" y="1" width="9" height="13" rx="1.5"/>
-                <path d="M8 1v4h4" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M5 8h6M5 10.5h4" strokeLinecap="round"/>
-              </svg>
+            <label style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, cursor: "pointer", background: "var(--bg-surface)", border: `0.5px solid ${pdfFiles.length > 0 ? "rgba(106,129,147,0.5)" : "var(--border)"}`, borderRadius: "var(--radius)", padding: "8px 12px", fontSize: 12, color: pdfFiles.length > 0 ? "#8aaabb" : "var(--text-muted)", transition: "all 0.12s" }} onMouseEnter={e => (e.currentTarget.style.borderColor = "rgba(106,129,147,0.5)")} onMouseLeave={e => (e.currentTarget.style.borderColor = pdfFiles.length > 0 ? "rgba(106,129,147,0.5)" : "var(--border)")}>
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4"><rect x="2" y="1" width="9" height="13" rx="1.5"/><path d="M8 1v4h4" strokeLinecap="round" strokeLinejoin="round"/><path d="M5 8h6M5 10.5h4" strokeLinecap="round"/></svg>
               <span style={{ fontWeight: 500 }}>PDF med underlag</span>
-              {pdfFiles.length > 0 && (
-                <span style={{ background: "rgba(106,129,147,0.2)", color: "#6a8193", borderRadius: 10, padding: "1px 7px", fontSize: 11, fontWeight: 600 }}>
-                  {pdfFiles.length} fil{pdfFiles.length > 1 ? "er" : ""}
-                </span>
-              )}
-              <input type="file" accept=".pdf" multiple style={{ display: "none" }}
-                onChange={e => {
-                  const files = Array.from(e.target.files || []);
-                  setPdfFiles(prev => [...prev, ...files]);
-                  e.target.value = "";
-                }} />
+              {pdfFiles.length > 0 && <span style={{ background: "rgba(106,129,147,0.2)", color: "#6a8193", borderRadius: 10, padding: "1px 7px", fontSize: 11, fontWeight: 600 }}>{pdfFiles.length} fil{pdfFiles.length > 1 ? "er" : ""}</span>}
+              <input type="file" accept=".pdf" multiple style={{ display: "none" }} onChange={e => { const files = Array.from(e.target.files || []); setPdfFiles(prev => [...prev, ...files]); e.target.value = ""; }} />
             </label>
-
-            {/* Projektbilder */}
-            <label style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, cursor: "pointer", background: "var(--bg-surface)", border: `0.5px solid ${imageFiles.length > 0 ? "rgba(106,129,147,0.5)" : "var(--border)"}`, borderRadius: "var(--radius)", padding: "8px 12px", fontSize: 12, color: imageFiles.length > 0 ? "#8aaabb" : "var(--text-muted)", transition: "all 0.12s" }}
-              onMouseEnter={e => (e.currentTarget.style.borderColor = "rgba(106,129,147,0.5)")}
-              onMouseLeave={e => (e.currentTarget.style.borderColor = imageFiles.length > 0 ? "rgba(106,129,147,0.5)" : "var(--border)")}>
-              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-                <rect x="1" y="3" width="14" height="10" rx="1.5"/>
-                <circle cx="5.5" cy="7" r="1.5"/>
-                <path d="M1 11l4-3 3 3 2-2 5 4" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
+            <label style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, cursor: "pointer", background: "var(--bg-surface)", border: `0.5px solid ${imageFiles.length > 0 ? "rgba(106,129,147,0.5)" : "var(--border)"}`, borderRadius: "var(--radius)", padding: "8px 12px", fontSize: 12, color: imageFiles.length > 0 ? "#8aaabb" : "var(--text-muted)", transition: "all 0.12s" }} onMouseEnter={e => (e.currentTarget.style.borderColor = "rgba(106,129,147,0.5)")} onMouseLeave={e => (e.currentTarget.style.borderColor = imageFiles.length > 0 ? "rgba(106,129,147,0.5)" : "var(--border)")}>
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4"><rect x="1" y="3" width="14" height="10" rx="1.5"/><circle cx="5.5" cy="7" r="1.5"/><path d="M1 11l4-3 3 3 2-2 5 4" strokeLinecap="round" strokeLinejoin="round"/></svg>
               <span style={{ fontWeight: 500 }}>Projektbilder</span>
-              {imageFiles.length > 0 && (
-                <span style={{ background: "rgba(106,129,147,0.2)", color: "#6a8193", borderRadius: 10, padding: "1px 7px", fontSize: 11, fontWeight: 600 }}>
-                  {imageFiles.length} bild{imageFiles.length > 1 ? "er" : ""}
-                </span>
-              )}
-              <input type="file" accept=".png,.jpg,.jpeg,.webp" multiple style={{ display: "none" }}
-                onChange={e => {
-                  const files = Array.from(e.target.files || []);
-                  setImageFiles(prev => [...prev, ...files]);
-                  e.target.value = "";
-                }} />
+              {imageFiles.length > 0 && <span style={{ background: "rgba(106,129,147,0.2)", color: "#6a8193", borderRadius: 10, padding: "1px 7px", fontSize: 11, fontWeight: 600 }}>{imageFiles.length} bild{imageFiles.length > 1 ? "er" : ""}</span>}
+              <input type="file" accept=".png,.jpg,.jpeg,.webp" multiple style={{ display: "none" }} onChange={e => { const files = Array.from(e.target.files || []); setImageFiles(prev => [...prev, ...files]); e.target.value = ""; }} />
             </label>
           </div>
-
-          {/* Visa uppladdade filer */}
           {(pdfFiles.length > 0 || imageFiles.length > 0) && (
             <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 5 }}>
               {pdfFiles.map((f, i) => (
                 <div key={`pdf-${i}`} style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(239,68,68,0.06)", border: "0.5px solid rgba(239,68,68,0.2)", borderRadius: "var(--radius)", padding: "3px 8px", fontSize: 11, color: "var(--text-muted)" }}>
-                  <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="#ef4444" strokeWidth="1.4"><rect x="2" y="1" width="10" height="13" rx="1.5"/><path d="M5 6h6M5 9h6M5 12h4" strokeLinecap="round"/></svg>
                   <span style={{ maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</span>
-                  <button onClick={() => setPdfFiles(prev => prev.filter((_, j) => j !== i))}
-                    style={{ background: "none", border: "none", color: "var(--text-faint)", cursor: "pointer", padding: 0, lineHeight: 1, fontSize: 14 }}>×</button>
+                  <button onClick={() => setPdfFiles(prev => prev.filter((_, j) => j !== i))} style={{ background: "none", border: "none", color: "var(--text-faint)", cursor: "pointer", padding: 0, lineHeight: 1, fontSize: 14 }}>×</button>
                 </div>
               ))}
               {imageFiles.map((f, i) => (
                 <div key={`img-${i}`} style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(106,129,147,0.06)", border: "0.5px solid rgba(106,129,147,0.2)", borderRadius: "var(--radius)", padding: "3px 8px", fontSize: 11, color: "var(--text-muted)" }}>
-                  <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="#6a8193" strokeWidth="1.4"><rect x="1" y="2" width="14" height="12" rx="1.5"/><circle cx="5" cy="7" r="1.5"/><path d="M1 11l4-3 3 3 2-2 6 4" strokeLinecap="round"/></svg>
                   <span style={{ maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</span>
-                  <button onClick={() => setImageFiles(prev => prev.filter((_, j) => j !== i))}
-                    style={{ background: "none", border: "none", color: "var(--text-faint)", cursor: "pointer", padding: 0, lineHeight: 1, fontSize: 14 }}>×</button>
+                  <button onClick={() => setImageFiles(prev => prev.filter((_, j) => j !== i))} style={{ background: "none", border: "none", color: "var(--text-faint)", cursor: "pointer", padding: 0, lineHeight: 1, fontSize: 14 }}>×</button>
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        {/* Kalkylparametrar */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
           <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "1.2px", color: "var(--text-faint)", textTransform: "uppercase" }}>Kalkylparametrar</div>
           <div style={{ flex: 1, height: "0.5px", background: "var(--border)" }} />
         </div>
         <div className="card" style={{ marginBottom: 20 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-            <div>
-              <label className="label">Timpris (kr/h)</label>
-              <input className="input" type="number" value={hourlyRate} onChange={e => setHourlyRate(e.target.value)} />
-            </div>
-            <div>
-              <label className="label">Påslag (%)</label>
-              <input className="input" type="number" value={marginPct} onChange={e => setMarginPct(e.target.value)} />
-            </div>
+            <div><label className="label">Timpris (kr/h)</label><input className="input" type="number" value={hourlyRate} onChange={e => setHourlyRate(e.target.value)} /></div>
+            <div><label className="label">Påslag (%)</label><input className="input" type="number" value={marginPct} onChange={e => setMarginPct(e.target.value)} /></div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 20 }}>
-              <div
-                onClick={() => setIncludeRot(!includeRot)}
-                style={{
-                  width: 36, height: 20, borderRadius: 10, cursor: "pointer", flexShrink: 0, position: "relative",
-                  background: includeRot ? "var(--accent)" : "var(--border)",
-                  transition: "background 0.15s",
-                }}
-              >
-                <div style={{
-                  width: 16, height: 16, borderRadius: "50%", background: "#fff",
-                  position: "absolute", top: 2, transition: "left 0.15s",
-                  left: includeRot ? 18 : 2,
-                }} />
+              <div onClick={() => setIncludeRot(!includeRot)} style={{ width: 36, height: 20, borderRadius: 10, cursor: "pointer", flexShrink: 0, position: "relative", background: includeRot ? "var(--accent)" : "var(--border)", transition: "background 0.15s" }}>
+                <div style={{ width: 16, height: 16, borderRadius: "50%", background: "#fff", position: "absolute", top: 2, transition: "left 0.15s", left: includeRot ? 18 : 2 }} />
               </div>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)" }}>ROT-avdrag</div>
-                <div style={{ fontSize: 11, color: "var(--text-faint)" }}>30% på arbete</div>
-              </div>
+              <div><div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)" }}>ROT-avdrag</div><div style={{ fontSize: 11, color: "var(--text-faint)" }}>30% på arbete</div></div>
             </div>
           </div>
         </div>
@@ -1087,6 +800,7 @@ function EstimateInner() {
   // ── RESULT ────────────────────────────────────────────────────────────────
   if (!result) return null;
   const t = result.totals || {};
+  const settings = getSettings();
 
   return (
     <ProtectedLayout>
@@ -1097,29 +811,20 @@ function EstimateInner() {
         </div>
         <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap", justifyContent: "flex-end" }}>
           <button className="btn btn-secondary btn-sm" onClick={handleReset}>Ny kalkyl</button>
-          <button className="btn btn-secondary btn-sm" onClick={() => setShowSources(!showSources)}>
-            {showSources ? "Dölj källor" : "Visa priskällor"}
-          </button>
+          <button className="btn btn-secondary btn-sm" onClick={() => setShowSources(!showSources)}>{showSources ? "Dölj källor" : "Visa priskällor"}</button>
           <button className="btn btn-secondary btn-sm" onClick={handleDownloadQuote}>📄 Ladda ner offert</button>
-          <button className="btn btn-secondary btn-sm" onClick={handleClickSend}
-            style={{ background: "var(--accent-soft)", color: "var(--accent-text)", borderColor: "var(--accent-border)" }}>
-            {sent ? "✓ Skickad" : "✉ Maila kund"}
-          </button>
-          <button className={`btn btn-sm ${saved ? "btn-secondary" : "btn-primary"}`}
-            onClick={() => !saved && setShowDraftModal(true)} disabled={saved}>
-            {saved ? "✓ Utkast sparat" : "Spara utkast"}
-          </button>
+          <button className="btn btn-secondary btn-sm" onClick={handleClickSend} style={{ background: "var(--accent-soft)", color: "var(--accent-text)", borderColor: "var(--accent-border)" }}>{sent ? "✓ Skickad" : "✉ Maila kund"}</button>
+          <button className={`btn btn-sm ${saved ? "btn-secondary" : "btn-primary"}`} onClick={() => !saved && setShowDraftModal(true)} disabled={saved}>{saved ? "✓ Utkast sparat" : "Spara utkast"}</button>
         </div>
       </div>
 
       {showSources && (
         <div className="info-box" style={{ marginBottom: 16 }}>
-          <strong>Om priskällor:</strong> Materialpriser är uppskattade baserat på svenska marknadspriser 2025–2026.
-          Arbetskostnad baseras på ditt timpris ({result.meta?.hourly_rate || 650} kr/h).
-          Verifiera alltid mot faktiska grossistpriser innan offert skickas.
+          <strong>Om priskällor:</strong> Materialpriser är uppskattade baserat på svenska marknadspriser 2025–2026. Arbetskostnad baseras på ditt timpris ({result.meta?.hourly_rate || 650} kr/h). Verifiera alltid mot faktiska grossistpriser innan offert skickas.
         </div>
       )}
 
+      {/* ── Kalkylrader ── */}
       <div className="card" style={{ marginBottom: 16, padding: 0, overflow: "hidden" }}>
         <table className="est-table">
           <thead>
@@ -1161,15 +866,87 @@ function EstimateInner() {
         </table>
       </div>
 
+      {/* ── Summering med EditableRow ── */}
       <div className="est-total-section">
-        <div className="est-total-row"><span className="label-text">Material</span><span className="value">{fmtKr(t.material_total || 0)}</span></div>
-        <div className="est-total-row"><span className="label-text">Arbete</span><span className="value">{fmtKr(t.labor_total || 0)}</span></div>
-        {(t.equipment_total || 0) > 0 && <div className="est-total-row"><span className="label-text">Utrustning</span><span className="value">{fmtKr(t.equipment_total)}</span></div>}
-        <div className="est-total-row"><span className="label-text">Delsumma</span><span className="value">{fmtKr(t.subtotal || 0)}</span></div>
-        {(t.margin_amount || 0) > 0 && <div className="est-total-row"><span className="label-text">Påslag ({result.meta?.margin_pct || 15}%)</span><span className="value">{fmtKr(t.margin_amount)}</span></div>}
-        <div className="est-total-row"><span className="label-text">Summa exkl. moms</span><span className="value">{fmtKr(t.total_ex_vat || 0)}</span></div>
-        <div className="est-total-row"><span className="label-text">Moms (25%)</span><span className="value">{fmtKr(t.vat || 0)}</span></div>
-        <div className="est-total-row big"><span>Totalt inkl. moms</span><span className="value">{fmtKr(t.total_inc_vat || 0)}</span></div>
+
+        {/* Material — kan justeras */}
+        <EditableRow
+          quoteNumber={result.job_title || localId}
+          fieldKey="material_total"
+          label="Material"
+          aiValue={t.material_total || 0}
+          displayValue={fmtKr(getVal("material_total", t.material_total || 0))}
+          unit="kr"
+          jobType={jobType}
+          region={fieldValues["location"]}
+          craftsmanName={settings.contact_name}
+          allEdits={allEdits}
+          onUpdated={(val, edits) => {
+            setEditedTotals(prev => ({ ...prev, material_total: val as number }));
+            setAllEdits(edits);
+          }}
+        />
+
+        {/* Arbete — viktigast, alltid highlight */}
+        <EditableRow
+          quoteNumber={result.job_title || localId}
+          fieldKey="labor_total"
+          label="Arbete"
+          aiValue={t.labor_total || 0}
+          displayValue={fmtKr(getVal("labor_total", t.labor_total || 0))}
+          unit="kr"
+          jobType={jobType}
+          region={fieldValues["location"]}
+          craftsmanName={settings.contact_name}
+          allEdits={allEdits}
+          highlight={true}
+          onUpdated={(val, edits) => {
+            setEditedTotals(prev => ({ ...prev, labor_total: val as number }));
+            setAllEdits(edits);
+          }}
+        />
+
+        {/* Utrustning — visas bara om > 0 */}
+        {(t.equipment_total || 0) > 0 && (
+          <EditableRow
+            quoteNumber={result.job_title || localId}
+            fieldKey="equipment_total"
+            label="Utrustning"
+            aiValue={t.equipment_total || 0}
+            displayValue={fmtKr(getVal("equipment_total", t.equipment_total || 0))}
+            unit="kr"
+            jobType={jobType}
+            region={fieldValues["location"]}
+            craftsmanName={settings.contact_name}
+            allEdits={allEdits}
+            onUpdated={(val, edits) => {
+              setEditedTotals(prev => ({ ...prev, equipment_total: val as number }));
+              setAllEdits(edits);
+            }}
+          />
+        )}
+
+        {/* Fasta rader som inte är redigerbara */}
+        {(t.margin_amount || 0) > 0 && (
+          <div className="est-total-row">
+            <span className="label-text">Påslag ({result.meta?.margin_pct || 15}%)</span>
+            <span className="value">{fmtKr(t.margin_amount)}</span>
+          </div>
+        )}
+        <div className="est-total-row">
+          <span className="label-text">Summa exkl. moms</span>
+          <span className="value">{fmtKr(t.total_ex_vat || 0)}</span>
+        </div>
+        <div className="est-total-row">
+          <span className="label-text">Moms (25%)</span>
+          <span className="value">{fmtKr(t.vat || 0)}</span>
+        </div>
+        <div className="est-total-row big">
+          <span>Totalt inkl. moms</span>
+          <span className="value">{fmtKr(t.total_inc_vat || 0)}</span>
+        </div>
+
+        {/* ROT */}
         {(t.rot_deduction || 0) > 0 && (
           <>
             <div className="est-total-row" style={{ marginTop: 12 }}>
@@ -1185,6 +962,7 @@ function EstimateInner() {
       </div>
 
       {result.estimated_days && <div className="info-box" style={{ marginTop: 16 }}>Uppskattad tidsåtgång: ca {result.estimated_days} arbetsdagar</div>}
+
       {result.warnings?.length > 0 && (
         <div className="warning-box" style={{ marginTop: 12 }}>
           <strong>Observera:</strong>
@@ -1193,6 +971,7 @@ function EstimateInner() {
           </ul>
         </div>
       )}
+
       {result.assumptions?.length > 0 && (
         <div style={{ marginTop: 12, padding: "12px 16px", background: "var(--bg-elevated)", border: "0.5px solid var(--border)", borderRadius: "var(--radius)", fontSize: 12, color: "var(--text-muted)" }}>
           <strong style={{ color: "var(--text-secondary)" }}>Antaganden:</strong>
@@ -1202,13 +981,10 @@ function EstimateInner() {
         </div>
       )}
 
-      {/* Namnmodal utkast */}
+      {/* Modaler */}
       {showDraftModal && <NameModal defaultName={result.job_title || description || "Nytt utkast"} onConfirm={handleConfirmDraft} onCancel={() => setShowDraftModal(false)} title="Spara utkast" confirmLabel="Spara utkast" saving={savingDraft} />}
-
-      {/* Namnmodal skicka */}
       {showSendModal && <NameModal defaultName={result.job_title || description || "Ny offert"} onConfirm={handleConfirmSendName} onCancel={() => setShowSendModal(false)} title="Namnge offerten" confirmLabel="Fortsätt" saving={false} />}
 
-      {/* Mailmodal */}
       {showMailModal && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
           <div style={{ background: "var(--bg-elevated)", border: "0.5px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "28px 32px", width: 440, maxWidth: "90vw" }}>
@@ -1218,14 +994,10 @@ function EstimateInner() {
             </div>
             {mailStep === "form" ? (
               <>
-                <div style={{ padding: "10px 14px", background: "var(--accent-soft)", border: "0.5px solid var(--accent-border)", borderRadius: "var(--radius)", fontSize: 12, color: "var(--accent-text)", marginBottom: 16 }}>
-                  <strong>Offert:</strong> {pendingSendName}
-                </div>
+                <div style={{ padding: "10px 14px", background: "var(--accent-soft)", border: "0.5px solid var(--accent-border)", borderRadius: "var(--radius)", fontSize: 12, color: "var(--accent-text)", marginBottom: 16 }}><strong>Offert:</strong> {pendingSendName}</div>
                 <div style={{ marginBottom: 14 }}><label className="label">Kundens namn</label><input className="input" placeholder="Anna Andersson" value={customerName} onChange={e => setCustomerName(e.target.value)} /></div>
                 <div style={{ marginBottom: 20 }}><label className="label">Kundens e-post *</label><input className="input" type="email" placeholder="kund@email.se" value={customerEmail} onChange={e => setCustomerEmail(e.target.value)} /></div>
-                <div style={{ padding: "12px 16px", background: "var(--bg-surface)", borderRadius: "var(--radius)", fontSize: 12, color: "var(--text-muted)", marginBottom: 20 }}>
-                  Kunden får ett mail med en sammanfattning och en länk för att granska och godkänna offerten.
-                </div>
+                <div style={{ padding: "12px 16px", background: "var(--bg-surface)", borderRadius: "var(--radius)", fontSize: 12, color: "var(--text-muted)", marginBottom: 20 }}>Kunden får ett mail med en sammanfattning och en länk för att granska och godkänna offerten.</div>
                 <div style={{ display: "flex", gap: 8 }}>
                   <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowMailModal(false)}>Avbryt</button>
                   <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleMailCustomer} disabled={sending || !customerEmail.trim()}>{sending ? "Sparar offert..." : "Fortsätt"}</button>
