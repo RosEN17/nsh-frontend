@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import ProtectedLayout from "@/components/ProtectedLayout";
 import Header from "@/components/Header";
 import { createEstimate } from "@/lib/api";
 import { saveEstimate, getEstimates, setSupabaseId } from "@/lib/store";
 import { saveQuoteToSupabase, saveDraftToSupabase } from "@/lib/quotes";
-import RowFeedbackModal, { RowEdit } from "@/components/RowFeedbackModal";
+import RowFeedbackModal, { RowEdit, QuoteRow } from "@/components/RowFeedbackModal";
 
 // ── Jobbtyper ────────────────────────────────────────────────────────────────
 const JOB_TYPES = [
@@ -49,30 +49,74 @@ function getSettings() {
   try { return JSON.parse(localStorage.getItem("byggkalk_settings") || "{}"); } catch { return {}; }
 }
 
-// ── HTML-generering (oförändrad) ──────────────────────────────────────────────
-function generateQuoteHTML(result: any, settings: any) {
-  const t = result.totals || {};
-  const today = new Date().toLocaleDateString("sv-SE");
-  const validDays = settings.quote_validity_days || 30;
+// ── Beräkna totals från categories ──────────────────────────────────────────
+// Kallas varje gång categories ändras så att summering alltid är korrekt
+function calcTotals(categories: any[], meta: any, includeRot: boolean) {
+  let laborTotal    = 0;
+  let materialTotal = 0;
+  let equipTotal    = 0;
+
+  for (const cat of categories) {
+    for (const row of cat.rows || []) {
+      const t = row.total || 0;
+      if (row.type === "labor")     laborTotal    += t;
+      else if (row.type === "material") materialTotal += t;
+      else if (row.type === "equipment") equipTotal += t;
+      else materialTotal += t; // okänd typ räknas som material
+    }
+  }
+
+  const marginPct    = meta?.margin_pct || 0;
+  const subtotalExMargin = laborTotal + materialTotal + equipTotal;
+  const marginAmount = Math.round(subtotalExMargin * marginPct / 100);
+  const totalExVat   = subtotalExMargin + marginAmount;
+  const vat          = Math.round(totalExVat * 0.25);
+  const totalIncVat  = totalExVat + vat;
+
+  // ROT: 30% på arbetskostnad inkl. moms, max 50 000 kr per person
+  // Vi räknar enkel variant: 30% på labor inkl moms, cap 50 000
+  const laborIncVat  = Math.round((laborTotal + Math.round(laborTotal * marginPct / 100)) * 1.25);
+  const rotDeduction = includeRot ? Math.min(Math.round(laborIncVat * 0.3), 50000) : 0;
+  const customerPays = totalIncVat - rotDeduction;
+
+  return {
+    labor_total:    laborTotal,
+    material_total: materialTotal,
+    equipment_total: equipTotal,
+    margin_amount:  marginAmount,
+    subtotal_ex_vat: subtotalExMargin,
+    total_ex_vat:   totalExVat,
+    vat,
+    total_inc_vat:  totalIncVat,
+    rot_deduction:  rotDeduction,
+    customer_pays:  customerPays,
+  };
+}
+
+// ── HTML-generering ──────────────────────────────────────────────────────────
+function generateQuoteHTML(result: any, cats: any[], totals: ReturnType<typeof calcTotals>, settings: any) {
+  const today      = new Date().toLocaleDateString("sv-SE");
+  const validDays  = settings.quote_validity_days || 30;
   const validUntil = new Date(Date.now() + validDays * 86400000).toLocaleDateString("sv-SE");
-  const quoteNr = "OFF-" + new Date().getFullYear() + "-" + String(Math.floor(Math.random() * 9000) + 1000);
+  const quoteNr    = "OFF-" + new Date().getFullYear() + "-" + String(Math.floor(Math.random() * 9000) + 1000);
   const companyName = settings.company_name || "Företagsnamn";
-  const hourlyRate = result.meta?.hourly_rate || settings.hourly_rate || 650;
+  const hourlyRate  = result.meta?.hourly_rate || settings.hourly_rate || 650;
 
   let rowsHTML = "";
-  for (const cat of result.categories || []) {
+  for (const cat of cats) {
     rowsHTML += `<tr style="background:#f5f5f5"><td colspan="5" style="padding:10px 12px;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:0.6px;border-bottom:1px solid #e0e0e0;color:#444">${cat.name}</td></tr>`;
     for (const row of cat.rows || []) {
       rowsHTML += `<tr><td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:12px;color:#222">${row.description}${row.note ? `<br><span style="font-size:10px;color:#999">${row.note}</span>` : ""}</td><td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:11px;color:#888;text-align:center">${row.unit}</td><td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:12px;text-align:right;font-family:'Courier New',monospace">${row.quantity}</td><td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:12px;text-align:right;font-family:'Courier New',monospace">${fmtKr(row.unit_price)}</td><td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:12px;text-align:right;font-family:'Courier New',monospace;font-weight:600">${fmtKr(row.total)}</td></tr>`;
     }
-    rowsHTML += `<tr style="background:#fafafa"><td colspan="4" style="padding:8px 12px;text-align:right;font-weight:600;font-size:11px;border-bottom:2px solid #ddd;color:#555">Delsumma</td><td style="padding:8px 12px;text-align:right;font-weight:700;font-size:12px;font-family:'Courier New',monospace;border-bottom:2px solid #ddd">${fmtKr(cat.subtotal)}</td></tr>`;
+    const catSubtotal = (cat.rows || []).reduce((s: number, r: any) => s + (r.total || 0), 0);
+    rowsHTML += `<tr style="background:#fafafa"><td colspan="4" style="padding:8px 12px;text-align:right;font-weight:600;font-size:11px;border-bottom:2px solid #ddd;color:#555">Delsumma</td><td style="padding:8px 12px;text-align:right;font-weight:700;font-size:12px;font-family:'Courier New',monospace;border-bottom:2px solid #ddd">${fmtKr(catSubtotal)}</td></tr>`;
   }
 
-  const logoHTML = settings.logo_base64 ? `<img src="${settings.logo_base64}" style="max-height:55px;max-width:180px;object-fit:contain" />` : `<div style="font-size:22px;font-weight:800;color:#1a1a1a;letter-spacing:-0.5px">${companyName}</div>`;
+  const logoHTML = settings.logo_base64 ? `<img src="${settings.logo_base64}" style="max-height:55px;max-width:180px;object-fit:contain" />` : `<div style="font-size:22px;font-weight:800;color:#1a1a1a">${companyName}</div>`;
   const companyInfoLines = [settings.address, settings.zip_city, settings.phone ? `Tel: ${settings.phone}` : "", settings.email, settings.website].filter(Boolean);
   const anbudsText = settings.quote_intro || "Vi tackar för er förfrågan och erbjuder oss härmed att utföra arbeten på rubricerat projekt i enlighet med erhållet förfrågningsunderlag/platsbesök";
-  const prereqLines = settings.quote_prerequisites ? settings.quote_prerequisites.split("\n").filter(Boolean) : ["Att fri framkomlighet finns och att störande arbete kan utföras dagtid 07.00–17.00", "Att ni fritt tillhandahåller el och vatten", "Att container/säckar för avfall ska kunna ställas i nära anslutning till respektive hus"];
-  const reservationLines = settings.quote_reservations ? settings.quote_reservations.split("\n").filter(Boolean) : ["Byggström tillhandahålls av byggherren", "Markarbeten ingår ej i denna offert", "Offert kan komma justeras efter mottagning bygghandlingar"];
+  const prereqLines = settings.quote_prerequisites ? settings.quote_prerequisites.split("\n").filter(Boolean) : ["Att fri framkomlighet finns och att störande arbete kan utföras dagtid 07.00–17.00", "Att ni fritt tillhandahåller el och vatten"];
+  const reservationLines = settings.quote_reservations ? settings.quote_reservations.split("\n").filter(Boolean) : ["Byggström tillhandahålls av byggherren", "Markarbeten ingår ej i denna offert"];
 
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Offert ${quoteNr}</title><style>body{font-family:'Segoe UI',Arial,sans-serif;max-width:820px;margin:0 auto;padding:40px;color:#222;font-size:13px;line-height:1.6}@media print{body{padding:20px;font-size:11px}}table{width:100%;border-collapse:collapse}h2{font-size:16px;font-weight:700;margin:0 0 12px;color:#1a1a1a}.divider{border:none;border-top:1px solid #e0e0e0;margin:24px 0}</style></head><body>
 <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;padding-bottom:18px;border-bottom:3px solid #6a8193"><div>${logoHTML}${settings.org_number ? `<div style="font-size:10px;color:#888;margin-top:1px">Org.nr: ${settings.org_number}</div>` : ""}<div style="font-size:10px;color:#888;margin-top:2px;line-height:1.7">${companyInfoLines.join("<br>")}</div></div><div style="text-align:right"><div style="font-size:26px;font-weight:800;color:#6a8193;letter-spacing:1px">OFFERT</div><div style="font-size:12px;color:#555;margin-top:8px;line-height:1.8"><div>Offertnummer: <strong>${quoteNr}</strong></div><div>Datum: ${today}</div><div>Giltig t.o.m: <strong>${validUntil}</strong></div>${settings.contact_name ? `<div style="margin-top:4px">Kontakt: ${settings.contact_name}${settings.contact_title ? `, ${settings.contact_title}` : ""}</div>` : ""}</div></div></div>
@@ -83,10 +127,14 @@ function generateQuoteHTML(result: any, settings: any) {
 <h2>Specifikation</h2>
 <table style="margin-bottom:20px"><thead><tr style="background:#1a1a1a;color:white"><th style="padding:9px 12px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;width:40%">Post</th><th style="padding:9px 12px;text-align:center;font-size:10px;text-transform:uppercase">Enhet</th><th style="padding:9px 12px;text-align:right;font-size:10px;text-transform:uppercase">Antal</th><th style="padding:9px 12px;text-align:right;font-size:10px;text-transform:uppercase">À-pris</th><th style="padding:9px 12px;text-align:right;font-size:10px;text-transform:uppercase">Summa</th></tr></thead><tbody>${rowsHTML}</tbody></table>
 <div style="max-width:360px;margin-left:auto">
-<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;color:#666;border-bottom:1px solid #eee"><span>Summa exkl. moms</span><span style="font-family:'Courier New',monospace">${fmtKr(t.total_ex_vat || 0)}</span></div>
-<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;color:#666;border-bottom:1px solid #eee"><span>Moms 25%</span><span style="font-family:'Courier New',monospace">${fmtKr(t.vat || 0)}</span></div>
-<div style="display:flex;justify-content:space-between;padding:12px 0;font-size:18px;font-weight:800;border-top:2px solid #1a1a1a;margin-top:4px"><span>Totalt inkl. moms</span><span style="font-family:'Courier New',monospace">${fmtKr(t.total_inc_vat || 0)}</span></div>
-${t.rot_deduction ? `<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;color:#16a34a"><span>ROT-avdrag (30% på arbete)</span><span>−${fmtKr(t.rot_deduction)}</span></div><div style="display:flex;justify-content:space-between;padding:10px 0;font-size:18px;font-weight:800;color:#16a34a;border-top:2px solid #16a34a;margin-top:4px"><span>Att betala</span><span>${fmtKr(t.customer_pays || t.total_inc_vat || 0)}</span></div>` : ""}
+<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;color:#666;border-bottom:1px solid #eee"><span>Material</span><span>${fmtKr(totals.material_total)}</span></div>
+<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;color:#666;border-bottom:1px solid #eee"><span>Arbete</span><span>${fmtKr(totals.labor_total)}</span></div>
+${totals.equipment_total > 0 ? `<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;color:#666;border-bottom:1px solid #eee"><span>Utrustning</span><span>${fmtKr(totals.equipment_total)}</span></div>` : ""}
+${totals.margin_amount > 0 ? `<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;color:#666;border-bottom:1px solid #eee"><span>Påslag</span><span>${fmtKr(totals.margin_amount)}</span></div>` : ""}
+<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;color:#666;border-bottom:1px solid #eee"><span>Summa exkl. moms</span><span>${fmtKr(totals.total_ex_vat)}</span></div>
+<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;color:#666;border-bottom:1px solid #eee"><span>Moms 25%</span><span>${fmtKr(totals.vat)}</span></div>
+<div style="display:flex;justify-content:space-between;padding:12px 0;font-size:18px;font-weight:800;border-top:2px solid #1a1a1a;margin-top:4px"><span>Totalt inkl. moms</span><span>${fmtKr(totals.total_inc_vat)}</span></div>
+${totals.rot_deduction > 0 ? `<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;color:#16a34a"><span>ROT-avdrag (30% på arbete)</span><span>−${fmtKr(totals.rot_deduction)}</span></div><div style="display:flex;justify-content:space-between;padding:10px 0;font-size:18px;font-weight:800;color:#16a34a;border-top:2px solid #16a34a;margin-top:4px"><span>Att betala</span><span>${fmtKr(totals.customer_pays)}</span></div>` : ""}
 </div>
 ${result.estimated_days ? `<div style="padding:10px 16px;background:#f0f9ff;border-left:3px solid #3b82f6;font-size:12px;color:#1e40af;margin-bottom:16px">Uppskattad tidsåtgång: ca ${result.estimated_days} arbetsdagar</div>` : ""}
 <hr class="divider">
@@ -99,7 +147,7 @@ ${result.estimated_days ? `<div style="padding:10px 16px;background:#f0f9ff;bord
 ${settings.quote_footer ? `<div style="margin-bottom:14px"><div style="font-weight:700;margin-bottom:3px">Övriga villkor</div><div>${settings.quote_footer.replace(/\n/g, "<br>")}</div></div>` : ""}
 <hr class="divider">
 <div style="display:flex;justify-content:space-between;margin-bottom:32px"><div style="width:45%"><div style="font-size:11px;color:#888;margin-bottom:36px">Leverantör</div><div style="border-top:1px solid #bbb;padding-top:8px;font-size:12px;color:#444">${settings.contact_name || companyName}</div></div><div style="width:45%"><div style="font-size:11px;color:#888;margin-bottom:36px">Kund (godkännande)</div><div style="border-top:1px solid #bbb;padding-top:8px;font-size:12px;color:#888">Namn: ________________________<br>Datum: ________________________</div></div></div>
-<div style="border-top:2px solid #6a8193;padding-top:16px;margin-top:8px"><div style="display:flex;justify-content:space-between;font-size:11px;color:#555"><div><div style="font-weight:700;color:#1a1a1a;font-size:12px;margin-bottom:4px">${companyName}</div>${settings.org_number ? `<div>Org.nr: ${settings.org_number}</div>` : ""}${settings.f_skatt ? `<div>Godkänd för F-skatt</div>` : ""}</div><div>${settings.phone ? `<div>Tel: ${settings.phone}</div>` : ""}${settings.email ? `<div>${settings.email}</div>` : ""}</div><div style="text-align:right">${settings.bankgiro ? `<div>Bankgiro: ${settings.bankgiro}</div>` : ""}${settings.plusgiro ? `<div>Plusgiro: ${settings.plusgiro}</div>` : ""}</div></div></div>
+<div style="border-top:2px solid #6a8193;padding-top:16px"><div style="display:flex;justify-content:space-between;font-size:11px;color:#555"><div><div style="font-weight:700;color:#1a1a1a;font-size:12px;margin-bottom:4px">${companyName}</div>${settings.org_number ? `<div>Org.nr: ${settings.org_number}</div>` : ""}${settings.f_skatt ? `<div>Godkänd för F-skatt</div>` : ""}</div><div>${settings.phone ? `<div>Tel: ${settings.phone}</div>` : ""}${settings.email ? `<div>${settings.email}</div>` : ""}</div><div style="text-align:right">${settings.bankgiro ? `<div>Bankgiro: ${settings.bankgiro}</div>` : ""}${settings.plusgiro ? `<div>Plusgiro: ${settings.plusgiro}</div>` : ""}</div></div></div>
 </body></html>`;
 }
 
@@ -126,8 +174,8 @@ function EstimateInner() {
   const searchParams = useSearchParams();
   const viewId = searchParams.get("view");
 
-  const [step, setStep]           = useState<"input" | "loading" | "result">("input");
-  const [jobType, setJobType]     = useState("badrum");
+  const [step, setStep]               = useState<"input" | "loading" | "result">("input");
+  const [jobType, setJobType]         = useState("badrum");
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
   const [checkValues, setCheckValues] = useState<Record<string, boolean>>({});
   const [description, setDescription] = useState("");
@@ -135,7 +183,6 @@ function EstimateInner() {
   const [marginPct, setMarginPct]     = useState("15");
   const [includeRot, setIncludeRot]   = useState(true);
 
-  // Resultat — categories är muterbar lokalt för redigeringar
   const [result, setResult]           = useState<any>(null);
   const [categories, setCategories]   = useState<any[]>([]);
 
@@ -144,30 +191,32 @@ function EstimateInner() {
   const [saved, setSaved]             = useState(false);
   const [showSources, setShowSources] = useState(false);
 
-  // ── Feedback-state ──
-  const [allEdits, setAllEdits] = useState<Record<string, RowEdit>>({});
-  // Vilken rad är öppen i modal: { catIndex, rowIndex } | null
+  const [allEdits, setAllEdits]       = useState<Record<string, RowEdit>>({});
   const [editingCell, setEditingCell] = useState<{ catIdx: number; rowIdx: number } | null>(null);
 
-  // ── Mail / modal ──
-  const [showMailModal, setShowMailModal]   = useState(false);
-  const [mailStep, setMailStep]             = useState<"form" | "choose">("form");
-  const [customerName, setCustomerName]     = useState("");
-  const [customerEmail, setCustomerEmail]   = useState("");
-  const [sending, setSending]               = useState(false);
-  const [sent, setSent]                     = useState(false);
-  const [mailSubject, setMailSubject]       = useState("");
-  const [mailBody, setMailBody]             = useState("");
+  const [showMailModal, setShowMailModal]     = useState(false);
+  const [mailStep, setMailStep]               = useState<"form" | "choose">("form");
+  const [customerName, setCustomerName]       = useState("");
+  const [customerEmail, setCustomerEmail]     = useState("");
+  const [sending, setSending]                 = useState(false);
+  const [sent, setSent]                       = useState(false);
+  const [mailSubject, setMailSubject]         = useState("");
+  const [mailBody, setMailBody]               = useState("");
   const [pendingSendName, setPendingSendName] = useState("");
-  const [showDraftModal, setShowDraftModal] = useState(false);
-  const [showSendModal, setShowSendModal]   = useState(false);
-  const [savingDraft, setSavingDraft]       = useState(false);
+  const [showDraftModal, setShowDraftModal]   = useState(false);
+  const [showSendModal, setShowSendModal]     = useState(false);
+  const [savingDraft, setSavingDraft]         = useState(false);
   const [localId] = useState(() => crypto.randomUUID());
 
-  // ── Filer ──
   const [pdfFiles, setPdfFiles]         = useState<File[]>([]);
   const [imageFiles, setImageFiles]     = useState<File[]>([]);
   const [drawingFiles, setDrawingFiles] = useState<File[]>([]);
+
+  // ── Live-beräkning av totals varje gång categories ändras ──
+  const liveTotals = useMemo(
+    () => result ? calcTotals(categories, result.meta, includeRot) : null,
+    [categories, result, includeRot]
+  );
 
   useEffect(() => {
     const params = JOB_PARAMS[jobType];
@@ -192,12 +241,8 @@ function EstimateInner() {
     }
   }, [viewId]);
 
-  // Synka categories när result ändras (ny kalkyl)
   useEffect(() => {
-    if (result) {
-      setCategories(JSON.parse(JSON.stringify(result.categories || [])));
-      setAllEdits({});
-    }
+    if (result) { setCategories(JSON.parse(JSON.stringify(result.categories || []))); setAllEdits({}); }
   }, [result]);
 
   function buildAiParams(): Record<string, string> {
@@ -215,27 +260,7 @@ function EstimateInner() {
   function fileToBase64(file: File): Promise<string> {
     return new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result as string); r.onerror = reject; r.readAsDataURL(file); });
   }
-  async function writeCraftsmanEdits(
-  supabaseQuoteId: string,
-  edits: Record<string, RowEdit>
-) {
-  try {
-    const SUPABASE_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-    const SUPABASE_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
-    await fetch(`${SUPABASE_URL}/rest/v1/quotes?id=eq.${supabaseQuoteId}`, {
-      method: "PATCH",
-      headers: {
-        "apikey": SUPABASE_ANON,
-        "Authorization": `Bearer ${SUPABASE_ANON}`,
-        "Content-Type": "application/json",
-        "Prefer": "return=minimal",
-      },
-      body: JSON.stringify({ craftsman_edits: edits }),
-    });
-  } catch (e) {
-    console.warn("Kunde inte spara craftsman_edits:", e);
-  }
-}
+
   async function handleGenerate() {
     if (!description.trim()) { setError("Beskriv jobbet först."); return; }
     setError(""); setStep("loading"); setSaved(false);
@@ -251,24 +276,35 @@ function EstimateInner() {
     } catch (e: any) { clearInterval(interval); setError(e.message || "Något gick fel."); setStep("input"); }
   }
 
+  async function writeCraftsmanEdits(supabaseQuoteId: string, edits: Record<string, RowEdit>) {
+    try {
+      const SUPABASE_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL  || "";
+      const SUPABASE_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+      await fetch(`${SUPABASE_URL}/rest/v1/quotes?id=eq.${supabaseQuoteId}`, {
+        method: "PATCH",
+        headers: { "apikey": SUPABASE_ANON, "Authorization": `Bearer ${SUPABASE_ANON}`, "Content-Type": "application/json", "Prefer": "return=minimal" },
+        body: JSON.stringify({ craftsman_edits: edits }),
+      });
+    } catch (e) { console.warn("Kunde inte spara craftsman_edits:", e); }
+  }
+
   async function handleConfirmDraft(name: string) {
     if (!result) return; setSavingDraft(true);
-    saveEstimate({ id: localId, created: new Date().toISOString(), description: name, job_type: jobType, total_inc_vat: result.totals?.total_inc_vat || 0, customer_pays: result.totals?.customer_pays || result.totals?.total_inc_vat || 0, data: { ...result, categories } });
-    const { id: sbId } = await saveDraftToSupabase(name, result.totals?.total_inc_vat || 0, result.totals?.customer_pays || result.totals?.total_inc_vat || 0, { ...result, categories });
+    const dataToSave = { ...result, categories };
+    saveEstimate({ id: localId, created: new Date().toISOString(), description: name, job_type: jobType, total_inc_vat: liveTotals?.total_inc_vat || 0, customer_pays: liveTotals?.customer_pays || 0, data: dataToSave });
+    const { id: sbId } = await saveDraftToSupabase(name, liveTotals?.total_inc_vat || 0, liveTotals?.customer_pays || 0, dataToSave);
     if (sbId) {
-  setSupabaseId(localId, sbId);
-  if (Object.keys(allEdits).length > 0) {
-    await writeCraftsmanEdits(sbId, allEdits);
-  }
-}
+      setSupabaseId(localId, sbId);
+      if (Object.keys(allEdits).length > 0) await writeCraftsmanEdits(sbId, allEdits);
+    }
     setSavingDraft(false); setShowDraftModal(false); setSaved(true);
   }
 
   function handleDownloadQuote() {
-    if (!result) return;
+    if (!result || !liveTotals) return;
     const settings = getSettings();
     if (!settings.company_name) { alert("Fyll i företagsuppgifter under Inställningar först."); return; }
-    const html = generateQuoteHTML({ ...result, categories }, settings);
+    const html = generateQuoteHTML(result, categories, liveTotals, settings);
     const blob = new Blob([html], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     const w = window.open(url, "_blank");
@@ -279,20 +315,25 @@ function EstimateInner() {
   function handleConfirmSendName(name: string) { setShowSendModal(false); setPendingSendName(name); setShowMailModal(true); }
 
   async function handleMailCustomer() {
-    if (!result || !customerEmail.trim()) return;
+    if (!result || !customerEmail.trim() || !liveTotals) return;
     const settings = getSettings();
     if (!settings.company_name) { alert("Fyll i företagsuppgifter under Inställningar först."); return; }
     setSending(true);
-    const t = result.totals || {};
-    const { id, error: sbErr } = await saveQuoteToSupabase(pendingSendName || result.job_title || description, result.job_summary || description, customerName, customerEmail, t.total_inc_vat || 0, t.customer_pays || t.total_inc_vat || 0, { ...result, categories }, settings);
+    const dataToSave = { ...result, categories };
+    const { id, error: sbErr } = await saveQuoteToSupabase(
+      pendingSendName || result.job_title || description,
+      result.job_summary || description,
+      customerName, customerEmail,
+      liveTotals.total_inc_vat,
+      liveTotals.customer_pays,
+      dataToSave, settings
+    );
     if (sbErr || !id) { alert("Kunde inte spara offert: " + (sbErr || "Okänt fel")); setSending(false); return; }
-    if (Object.keys(allEdits).length > 0) {
-  await writeCraftsmanEdits(id, allEdits);
-}
-    const acceptUrl = `${window.location.origin}/accept?id=${id}`;
+    if (Object.keys(allEdits).length > 0) await writeCraftsmanEdits(id, allEdits);
+    const acceptUrl   = `${window.location.origin}/accept?id=${id}`;
     const companyName = settings.company_name || "Vi";
     const subj = `Offert: ${pendingSendName || result.job_title || "Kalkyl"} — ${companyName}`;
-    const bd = `Hej ${customerName || ""}!\n\nTack för din förfrågan. Här kommer vår offert för ${pendingSendName || result.job_title || "arbetet"}.\n\n${result.job_summary || ""}\n\nTotalt: ${fmtKr(t.total_inc_vat || 0)}${t.rot_deduction ? `\nROT-avdrag: -${fmtKr(t.rot_deduction)}\nAtt betala: ${fmtKr(t.customer_pays || t.total_inc_vat || 0)}` : ""}\n\nSe hela offerten:\n${acceptUrl}\n\nGiltig i ${settings.quote_validity_days || 30} dagar.\n\nMed vänliga hälsningar\n${settings.contact_name || companyName}${settings.phone ? `\nTel: ${settings.phone}` : ""}${settings.email ? `\n${settings.email}` : ""}`;
+    const bd = `Hej ${customerName || ""}!\n\nTack för din förfrågan. Här kommer vår offert för ${pendingSendName || result.job_title || "arbetet"}.\n\n${result.job_summary || ""}\n\nTotalt: ${fmtKr(liveTotals.total_inc_vat)}${liveTotals.rot_deduction > 0 ? `\nROT-avdrag: -${fmtKr(liveTotals.rot_deduction)}\nAtt betala: ${fmtKr(liveTotals.customer_pays)}` : ""}\n\nSe hela offerten:\n${acceptUrl}\n\nGiltig i ${settings.quote_validity_days || 30} dagar.\n\nMed vänliga hälsningar\n${settings.contact_name || companyName}${settings.phone ? `\nTel: ${settings.phone}` : ""}${settings.email ? `\n${settings.email}` : ""}`;
     setMailSubject(subj); setMailBody(bd); setSending(false); setMailStep("choose");
   }
 
@@ -303,12 +344,10 @@ function EstimateInner() {
 
   function handleReset() { setStep("input"); setResult(null); setCategories([]); setDescription(""); setSaved(false); setShowSources(false); setAllEdits({}); window.history.replaceState(null, "", "/estimate"); }
 
-  // Snickaren sparade en radjustering → uppdatera categories lokalt
-  function handleRowSave(catIdx: number, rowIdx: number, updatedRow: any, updatedEdits: Record<string, RowEdit>) {
+  function handleRowSave(catIdx: number, rowIdx: number, updatedRow: QuoteRow, updatedEdits: Record<string, RowEdit>) {
     setCategories(prev => {
       const next = JSON.parse(JSON.stringify(prev));
       next[catIdx].rows[rowIdx] = updatedRow;
-      // Räkna om delsumma för kategorin
       next[catIdx].subtotal = next[catIdx].rows.reduce((s: number, r: any) => s + (r.total || 0), 0);
       return next;
     });
@@ -318,7 +357,7 @@ function EstimateInner() {
 
   // ── INPUT ──────────────────────────────────────────────────────────────────
   if (step === "input") {
-    const params = JOB_PARAMS[jobType];
+    const params  = JOB_PARAMS[jobType];
     const jtLabel = JOB_TYPES.find(j => j.id === jobType)?.label || "";
     return (
       <ProtectedLayout>
@@ -449,12 +488,9 @@ function EstimateInner() {
   }
 
   // ── RESULT ────────────────────────────────────────────────────────────────
-  if (!result) return null;
-  const t = result.totals || {};
-  const settings = getSettings();
-
-  // Räkna ut hur många rader som är justerade
+  if (!result || !liveTotals) return null;
   const editedCount = Object.keys(allEdits).length;
+  const settings    = getSettings();
 
   return (
     <ProtectedLayout>
@@ -472,21 +508,20 @@ function EstimateInner() {
         </div>
       </div>
 
-      {/* Info om justerade rader */}
       {editedCount > 0 && (
         <div style={{ marginBottom: 12, padding: "8px 14px", background: "rgba(99,179,130,0.08)", border: "0.5px solid rgba(99,179,130,0.25)", borderRadius: "var(--radius)", fontSize: 12, color: "#3d9e6a", display: "flex", alignItems: "center", gap: 8 }}>
           <span style={{ fontWeight: 600 }}>{editedCount} rad{editedCount > 1 ? "er" : ""} justerad{editedCount > 1 ? "e" : ""}</span>
-          <span style={{ color: "var(--text-faint)" }}>— sparade för AI-träning</span>
+          <span style={{ color: "var(--text-faint)" }}>— summering uppdaterad automatiskt</span>
         </div>
       )}
 
       {showSources && (
         <div className="info-box" style={{ marginBottom: 16 }}>
-          <strong>Om priskällor:</strong> Materialpriser är uppskattade baserat på svenska marknadspriser 2025–2026. Arbetskostnad baseras på ditt timpris ({result.meta?.hourly_rate || 650} kr/h). Klicka på en rad för att justera enskilda poster — justeringarna förbättrar AI:n.
+          <strong>Om priskällor:</strong> Materialpriser är uppskattade baserat på svenska marknadspriser 2025–2026. Klicka på "Justera" på en rad för att ändra antal eller pris — summering uppdateras direkt.
         </div>
       )}
 
-      {/* ── Kalkylrader med justera-knapp per rad ── */}
+      {/* ── Kalkylrader ── */}
       <div className="card" style={{ marginBottom: 16, padding: 0, overflow: "hidden" }}>
         <table className="est-table">
           <thead>
@@ -496,8 +531,7 @@ function EstimateInner() {
               <th className="right">Antal</th>
               <th className="right">À-pris</th>
               <th className="right">Summa</th>
-              {/* Extra kolumn för Justera-knapp */}
-              <th style={{ width: 80 }}></th>
+              <th style={{ width: 90 }}></th>
             </tr>
           </thead>
           <tbody>
@@ -517,20 +551,16 @@ function EstimateInner() {
                             <div style={{ color: "var(--text-primary)", fontWeight: 500 }}>{row.description}</div>
                             {row.note && <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 2 }}>{row.note}</div>}
                           </div>
-                          {isEdited && (
-                            <span style={{ fontSize: 10, fontWeight: 600, padding: "1px 6px", borderRadius: 10, background: "rgba(99,179,130,0.15)", color: "#3d9e6a", border: "0.5px solid rgba(99,179,130,0.3)", whiteSpace: "nowrap", flexShrink: 0 }}>justerad</span>
-                          )}
+                          {isEdited && <span style={{ fontSize: 10, fontWeight: 600, padding: "1px 6px", borderRadius: 10, background: "rgba(99,179,130,0.15)", color: "#3d9e6a", border: "0.5px solid rgba(99,179,130,0.3)", whiteSpace: "nowrap", flexShrink: 0 }}>justerad</span>}
                         </div>
                       </td>
                       <td style={{ color: "var(--text-faint)" }}>{row.unit}</td>
-                      <td className="right" style={{ fontFamily: "var(--mono)", color: isEdited ? "var(--text-primary)" : undefined, fontWeight: isEdited ? 500 : undefined }}>{row.quantity}</td>
+                      <td className="right" style={{ fontFamily: "var(--mono)", fontWeight: isEdited ? 500 : undefined }}>{row.quantity}</td>
                       <td className="right" style={{ fontFamily: "var(--mono)" }}>{fmtKr(row.unit_price)}</td>
                       <td className="right" style={{ fontFamily: "var(--mono)", fontWeight: 600 }}>{fmtKr(row.total)}</td>
-                      {/* Justera-knapp */}
                       <td style={{ textAlign: "center", padding: "6px 8px" }}>
                         <button
                           onClick={() => setEditingCell({ catIdx, rowIdx })}
-                          title="Justera denna rad"
                           style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: "var(--radius)", border: "0.5px solid var(--border-strong)", background: isEdited ? "rgba(99,179,130,0.1)" : "transparent", color: isEdited ? "#3d9e6a" : "var(--text-faint)", cursor: "pointer", fontSize: 11, fontWeight: 500, transition: "all 0.1s", whiteSpace: "nowrap" }}
                           onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--accent)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--text-primary)"; }}
                           onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--border-strong)"; (e.currentTarget as HTMLButtonElement).style.color = isEdited ? "#3d9e6a" : "var(--text-faint)"; }}
@@ -552,19 +582,19 @@ function EstimateInner() {
         </table>
       </div>
 
-      {/* ── Summering (oförändrad) ── */}
+      {/* ── Summering — alltid live från liveTotals ── */}
       <div className="est-total-section">
-        <div className="est-total-row"><span className="label-text">Material</span><span className="value">{fmtKr(t.material_total || 0)}</span></div>
-        <div className="est-total-row"><span className="label-text">Arbete</span><span className="value">{fmtKr(t.labor_total || 0)}</span></div>
-        {(t.equipment_total || 0) > 0 && <div className="est-total-row"><span className="label-text">Utrustning</span><span className="value">{fmtKr(t.equipment_total)}</span></div>}
-        {(t.margin_amount || 0) > 0 && <div className="est-total-row"><span className="label-text">Påslag ({result.meta?.margin_pct || 15}%)</span><span className="value">{fmtKr(t.margin_amount)}</span></div>}
-        <div className="est-total-row"><span className="label-text">Summa exkl. moms</span><span className="value">{fmtKr(t.total_ex_vat || 0)}</span></div>
-        <div className="est-total-row"><span className="label-text">Moms (25%)</span><span className="value">{fmtKr(t.vat || 0)}</span></div>
-        <div className="est-total-row big"><span>Totalt inkl. moms</span><span className="value">{fmtKr(t.total_inc_vat || 0)}</span></div>
-        {(t.rot_deduction || 0) > 0 && (
+        <div className="est-total-row"><span className="label-text">Material</span><span className="value">{fmtKr(liveTotals.material_total)}</span></div>
+        <div className="est-total-row"><span className="label-text">Arbete</span><span className="value">{fmtKr(liveTotals.labor_total)}</span></div>
+        {liveTotals.equipment_total > 0 && <div className="est-total-row"><span className="label-text">Utrustning</span><span className="value">{fmtKr(liveTotals.equipment_total)}</span></div>}
+        {liveTotals.margin_amount > 0 && <div className="est-total-row"><span className="label-text">Påslag ({result.meta?.margin_pct || 15}%)</span><span className="value">{fmtKr(liveTotals.margin_amount)}</span></div>}
+        <div className="est-total-row"><span className="label-text">Summa exkl. moms</span><span className="value">{fmtKr(liveTotals.total_ex_vat)}</span></div>
+        <div className="est-total-row"><span className="label-text">Moms (25%)</span><span className="value">{fmtKr(liveTotals.vat)}</span></div>
+        <div className="est-total-row big"><span>Totalt inkl. moms</span><span className="value">{fmtKr(liveTotals.total_inc_vat)}</span></div>
+        {liveTotals.rot_deduction > 0 && (
           <>
-            <div className="est-total-row" style={{ marginTop: 12 }}><span className="label-text">ROT-avdrag (30% på arbete)</span><span className="est-rot">−{fmtKr(t.rot_deduction)}</span></div>
-            <div className="est-total-row big"><span>Kunden betalar</span><span className="value" style={{ color: "var(--green)" }}>{fmtKr(t.customer_pays || t.total_inc_vat || 0)}</span></div>
+            <div className="est-total-row" style={{ marginTop: 12 }}><span className="label-text">ROT-avdrag (30% på arbete)</span><span className="est-rot">−{fmtKr(liveTotals.rot_deduction)}</span></div>
+            <div className="est-total-row big"><span>Kunden betalar</span><span className="value" style={{ color: "var(--green)" }}>{fmtKr(liveTotals.customer_pays)}</span></div>
           </>
         )}
       </div>
@@ -589,7 +619,6 @@ function EstimateInner() {
         </div>
       )}
 
-      {/* ── RowFeedbackModal — öppnas när snickaren klickar Justera ── */}
       {editingCell && (
         <RowFeedbackModal
           quoteNumber={result.job_title || localId}
@@ -604,7 +633,6 @@ function EstimateInner() {
         />
       )}
 
-      {/* Modaler */}
       {showDraftModal && <NameModal defaultName={result.job_title || description || "Nytt utkast"} onConfirm={handleConfirmDraft} onCancel={() => setShowDraftModal(false)} title="Spara utkast" confirmLabel="Spara utkast" saving={savingDraft} />}
       {showSendModal && <NameModal defaultName={result.job_title || description || "Ny offert"} onConfirm={handleConfirmSendName} onCancel={() => setShowSendModal(false)} title="Namnge offerten" confirmLabel="Fortsätt" saving={false} />}
 
