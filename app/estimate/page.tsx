@@ -320,7 +320,7 @@ function EstimateInner() {
     if (!settings.company_name) { alert("Fyll i företagsuppgifter under Inställningar först."); return; }
     setSending(true);
     const dataToSave = { ...result, categories };
-    cconst { id, error: sbErr } = await saveQuoteToSupabase(
+    const { id, error: sbErr } = await saveQuoteToSupabase(
   pendingSendName || result.job_title || description,
   result.job_summary || description,
   customerName,
