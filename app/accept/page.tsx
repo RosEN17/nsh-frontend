@@ -68,6 +68,7 @@ function AcceptInner() {
   const [accepting, setAccepting] = useState(false);
   const [accepted, setAccepted] = useState(false);
   const [error, setError] = useState("");
+  const [showDetails, setShowDetails] = useState(false);
 
   useEffect(() => {
     if (!quoteId) { setLoading(false); return; }
@@ -174,32 +175,6 @@ function AcceptInner() {
     <div style={{ minHeight: "100vh", background: "#f1f5f9", fontFamily: "'Segoe UI', Arial, sans-serif", padding: "36px 16px" }}>
       <div style={{ maxWidth: 720, margin: "0 auto" }}>
 
-        {/* ── GODKÄNN-KNAPP UPPE ─────────────────────────────────────────── */}
-        {!accepted && (
-          <div style={{ ...cardPad, background: "#0f172a", border: "none", marginBottom: 16, textAlign: "center" }}>
-            <div style={{ fontSize: 14, color: "#94a3b8", marginBottom: 4 }}>
-              Läs igenom offerten nedan och godkänn när du är redo
-            </div>
-            <div style={{ fontSize: 22, fontWeight: 700, color: "white", marginBottom: 16 }}>
-              {fmtKr(t.customer_pays || t.total_inc_vat || 0)}
-              {t.rot_deduction > 0 && (
-                <span style={{ fontSize: 13, fontWeight: 400, color: "#94a3b8", marginLeft: 8 }}>inkl. ROT-avdrag</span>
-              )}
-            </div>
-            <button
-              onClick={handleAccept}
-              disabled={accepting}
-              style={{ padding: "13px 44px", background: "#6a8193", color: "white", border: "none", borderRadius: 8, fontSize: 15, fontWeight: 700, cursor: "pointer", opacity: accepting ? 0.6 : 1 }}
-            >
-              {accepting ? "Godkänner..." : "Godkänn offert"}
-            </button>
-            {error && <div style={{ marginTop: 12, fontSize: 13, color: "#fca5a5" }}>{error}</div>}
-            <div style={{ fontSize: 11, color: "#64748b", marginTop: 10 }}>
-              Giltig t.o.m {validUntil}
-            </div>
-          </div>
-        )}
-
         {/* ── GODKÄND-BANNER ─────────────────────────────────────────────── */}
         {accepted && (
           <div style={{ ...cardPad, background: "#f0fdf4", border: "1px solid #bbf7d0", textAlign: "center", marginBottom: 16 }}>
@@ -269,64 +244,84 @@ function AcceptInner() {
           </ul>
         </div>
 
-        {/* ── KALKYLRADER ───────────────────────────────────────────────── */}
+        {/* ── KALKYLRADER — dold som default, dropdown visar detaljer ── */}
         <div style={card}>
-          <div style={{ padding: "18px 24px 10px", fontSize: 13, fontWeight: 700, color: "#0f172a" }}>Specifikation</div>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ background: "#0f172a" }}>
-                <th style={{ padding: "8px 16px", textAlign: "left", fontSize: 10, textTransform: "uppercase", letterSpacing: 1, color: "#94a3b8", fontWeight: 500 }}>Post</th>
-                <th style={{ padding: "8px 10px", textAlign: "center", fontSize: 10, textTransform: "uppercase", letterSpacing: 1, color: "#94a3b8", fontWeight: 500 }}>Enhet</th>
-                <th style={{ padding: "8px 10px", textAlign: "right", fontSize: 10, textTransform: "uppercase", letterSpacing: 1, color: "#94a3b8", fontWeight: 500 }}>Antal</th>
-                <th style={{ padding: "8px 10px", textAlign: "right", fontSize: 10, textTransform: "uppercase", letterSpacing: 1, color: "#94a3b8", fontWeight: 500 }}>À-pris</th>
-                <th style={{ padding: "8px 16px", textAlign: "right", fontSize: 10, textTransform: "uppercase", letterSpacing: 1, color: "#94a3b8", fontWeight: 500 }}>Summa</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(data.categories || []).map((cat: any, ci: number) => (
-                <> 
-                  <tr key={`c${ci}`}>
-                    <td colSpan={5} style={{ padding: "9px 16px", fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, color: "#64748b", background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-                      {cat.name}
-                    </td>
-                  </tr>
-                  {(cat.rows || []).map((row: any, ri: number) => (
-                    <tr key={`r${ci}${ri}`}>
-                      <td style={{ padding: "9px 16px", borderBottom: "1px solid #f1f5f9", fontSize: 13, color: "#1e293b" }}>
-                        {row.description}
-                        {row.note && <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 1 }}>{row.note}</div>}
+          <button
+            onClick={() => setShowDetails(v => !v)}
+            style={{
+              width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "16px 24px", background: "none", border: "none", cursor: "pointer",
+              borderBottom: showDetails ? "1px solid var(--border, #e2e8f0)" : "none",
+            }}
+          >
+            <span style={{ fontSize: 14, fontWeight: 600, color: "#0f172a" }}>
+              Visa detaljerad prisinformation
+            </span>
+            <svg
+              width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#64748b" strokeWidth="1.5"
+              style={{ transform: showDetails ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}
+            >
+              <path d="M4 6l4 4 4-4" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+
+          {showDetails && (
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ background: "#0f172a" }}>
+                  <th style={{ padding: "8px 16px", textAlign: "left", fontSize: 10, textTransform: "uppercase", letterSpacing: 1, color: "#94a3b8", fontWeight: 500 }}>Post</th>
+                  <th style={{ padding: "8px 10px", textAlign: "center", fontSize: 10, textTransform: "uppercase", letterSpacing: 1, color: "#94a3b8", fontWeight: 500 }}>Enhet</th>
+                  <th style={{ padding: "8px 10px", textAlign: "right", fontSize: 10, textTransform: "uppercase", letterSpacing: 1, color: "#94a3b8", fontWeight: 500 }}>Antal</th>
+                  <th style={{ padding: "8px 10px", textAlign: "right", fontSize: 10, textTransform: "uppercase", letterSpacing: 1, color: "#94a3b8", fontWeight: 500 }}>À-pris</th>
+                  <th style={{ padding: "8px 16px", textAlign: "right", fontSize: 10, textTransform: "uppercase", letterSpacing: 1, color: "#94a3b8", fontWeight: 500 }}>Summa</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(data.categories || []).map((cat: any, ci: number) => (
+                  <>
+                    <tr key={`c${ci}`}>
+                      <td colSpan={5} style={{ padding: "9px 16px", fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, color: "#64748b", background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+                        {cat.name}
                       </td>
-                      <td style={{ padding: "9px 10px", borderBottom: "1px solid #f1f5f9", fontSize: 12, color: "#94a3b8", textAlign: "center" }}>{row.unit}</td>
-                      <td style={{ padding: "9px 10px", borderBottom: "1px solid #f1f5f9", fontSize: 13, textAlign: "right", color: "#334155" }}>{row.quantity}</td>
-                      <td style={{ padding: "9px 10px", borderBottom: "1px solid #f1f5f9", fontSize: 13, textAlign: "right", color: "#334155", fontFamily: "monospace" }}>{fmtKr(row.unit_price)}</td>
-                      <td style={{ padding: "9px 16px", borderBottom: "1px solid #f1f5f9", fontSize: 13, textAlign: "right", fontWeight: 600, color: "#0f172a", fontFamily: "monospace" }}>{fmtKr(row.total)}</td>
                     </tr>
-                  ))}
-                  <tr key={`sub${ci}`}>
-                    <td colSpan={4} style={{ padding: "7px 16px", textAlign: "right", fontSize: 11, fontWeight: 600, color: "#64748b", borderBottom: "2px solid #e2e8f0", background: "#f8fafc" }}>Delsumma {cat.name}</td>
-                    <td style={{ padding: "7px 16px", textAlign: "right", fontSize: 12, fontWeight: 700, color: "#0f172a", borderBottom: "2px solid #e2e8f0", background: "#f8fafc", fontFamily: "monospace" }}>{fmtKr(cat.subtotal)}</td>
-                  </tr>
-                </>
-              ))}
-            </tbody>
-          </table>
+                    {(cat.rows || []).map((row: any, ri: number) => (
+                      <tr key={`r${ci}${ri}`}>
+                        <td style={{ padding: "9px 16px", borderBottom: "1px solid #f1f5f9", fontSize: 13, color: "#1e293b" }}>
+                          {row.description}
+                          {row.note && <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 1 }}>{row.note}</div>}
+                        </td>
+                        <td style={{ padding: "9px 10px", borderBottom: "1px solid #f1f5f9", fontSize: 12, color: "#94a3b8", textAlign: "center" }}>{row.unit}</td>
+                        <td style={{ padding: "9px 10px", borderBottom: "1px solid #f1f5f9", fontSize: 13, textAlign: "right", color: "#334155" }}>{row.quantity}</td>
+                        <td style={{ padding: "9px 10px", borderBottom: "1px solid #f1f5f9", fontSize: 13, textAlign: "right", color: "#334155", fontFamily: "monospace" }}>{fmtKr(row.unit_price)}</td>
+                        <td style={{ padding: "9px 16px", borderBottom: "1px solid #f1f5f9", fontSize: 13, textAlign: "right", fontWeight: 600, color: "#0f172a", fontFamily: "monospace" }}>{fmtKr(row.total)}</td>
+                      </tr>
+                    ))}
+                    <tr key={`sub${ci}`}>
+                      <td colSpan={4} style={{ padding: "7px 16px", textAlign: "right", fontSize: 11, fontWeight: 600, color: "#64748b", borderBottom: "2px solid #e2e8f0", background: "#f8fafc" }}>Delsumma {cat.name}</td>
+                      <td style={{ padding: "7px 16px", textAlign: "right", fontSize: 12, fontWeight: 700, color: "#0f172a", borderBottom: "2px solid #e2e8f0", background: "#f8fafc", fontFamily: "monospace" }}>{fmtKr(cat.subtotal)}</td>
+                    </tr>
+                  </>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
 
-        {/* ── SUMMERING ─────────────────────────────────────────────────── */}
+        {/* ── SUMMERING — bara slutsumma visas ─────────────────────────── */}
         <div style={cardPad}>
           <div style={{ maxWidth: 320, marginLeft: "auto" }}>
-            <SumRow label="Material"       value={fmtKr(t.material_total  || 0)} />
-            <SumRow label="Arbete"         value={fmtKr(t.labor_total     || 0)} />
-            {(t.equipment_total || 0) > 0 && <SumRow label="Utrustning" value={fmtKr(t.equipment_total)} />}
-            {(t.margin_amount   || 0) > 0 && <SumRow label="Påslag"     value={fmtKr(t.margin_amount)} />}
-            <SumRow label="Summa exkl. moms" value={fmtKr(t.total_ex_vat || 0)} />
-            <SumRow label="Moms 25%"         value={fmtKr(t.vat          || 0)} />
-            <SumRow label="Totalt inkl. moms" value={fmtKr(t.total_inc_vat || 0)} big />
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderTop: "2px solid #0f172a", marginTop: 6 }}>
+              <span style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>
+                {(t.rot_deduction || 0) > 0 ? "Att betala (efter ROT)" : "Totalt inkl. moms"}
+              </span>
+              <span style={{ fontSize: 20, fontWeight: 700, color: "#0f172a", fontFamily: "monospace" }}>
+                {fmtKr(t.customer_pays || t.total_inc_vat || 0)}
+              </span>
+            </div>
             {(t.rot_deduction || 0) > 0 && (
-              <>
-                <SumRow label="ROT-avdrag (30% på arbete)" value={`−${fmtKr(t.rot_deduction)}`} green />
-                <SumRow label="Att betala" value={fmtKr(t.customer_pays || t.total_inc_vat || 0)} big green />
-              </>
+              <div style={{ fontSize: 12, color: "#16a34a", textAlign: "right", marginTop: 2 }}>
+                Inkl. ROT-avdrag {fmtKr(t.rot_deduction)}
+              </div>
             )}
           </div>
           {data.estimated_days && (
