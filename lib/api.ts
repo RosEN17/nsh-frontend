@@ -1,3 +1,5 @@
+import { supabase } from "./supabase";
+
 const API = process.env.NEXT_PUBLIC_API_BASE?.trim() || "";
 
 async function extractError(res: Response): Promise<string> {
@@ -7,6 +9,16 @@ async function extractError(res: Response): Promise<string> {
     if (detail) return `${detail} (HTTP ${res.status})`;
   } catch {}
   return `HTTP ${res.status}: ${res.statusText || "Serverfel"}`;
+}
+
+// Hämta Supabase JWT för Authorization-header
+async function getAuthHeader(): Promise<Record<string, string>> {
+  try {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    if (token) return { "Authorization": `Bearer ${token}` };
+  } catch {}
+  return {};
 }
 
 export async function createEstimate(body: {
@@ -21,9 +33,10 @@ export async function createEstimate(body: {
   images?: Array<{ name: string; data: string }>;
   documents?: Array<{ name: string; data: string }>;
 }) {
+  const authHeader = await getAuthHeader();
   const res = await fetch(`${API}/api/estimate`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeader },
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(await extractError(res));
@@ -31,9 +44,10 @@ export async function createEstimate(body: {
 }
 
 export async function chatMessage(message: string, estimateContext?: any) {
+  const authHeader = await getAuthHeader();
   const res = await fetch(`${API}/api/chat`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeader },
     body: JSON.stringify({ message, estimate_context: estimateContext }),
   });
   if (!res.ok) throw new Error(await extractError(res));
@@ -70,9 +84,10 @@ export interface FeedbackPayload {
 }
 
 export async function saveFeedback(payload: FeedbackPayload): Promise<void> {
+  const authHeader = await getAuthHeader();
   const res = await fetch(`${API}/api/feedback`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeader },
     body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error(await extractError(res));
