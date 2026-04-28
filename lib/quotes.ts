@@ -14,6 +14,10 @@ export interface QuoteRecord {
   accepted_at: string | null;
   quote_data: any;
   settings_data: any;
+  // AI-träningsfält
+  outcome: string | null;       // won | lost | pending
+  lost_reason: string | null;
+  craftsman_edits: any | null;
 }
 
 export async function saveDraftToSupabase(
@@ -101,10 +105,6 @@ export async function acceptQuote(id: string): Promise<{ success: boolean; error
     .eq("id", id);
 
   if (error) return { success: false, error: error.message };
-
-  const quote = await getQuoteById(id);
-  if (!quote) return { success: false, error: "Offert hittades inte" };
-
   return { success: true };
 }
 
@@ -116,4 +116,30 @@ export async function getUserQuotes(): Promise<QuoteRecord[]> {
 
   if (error || !data) return [];
   return data as QuoteRecord[];
+}
+
+// ── NY: Uppdatera outcome (won/lost/pending) direkt från UI ──────────────────
+// Kallas när snickaren klickar Vann eller Förlorade på en offert.
+// Skriver till quotes-tabellens outcome och lost_reason-kolumner.
+export async function updateOutcome(
+  id: string,
+  outcome: "won" | "lost" | "pending",
+  lostReason?: string
+): Promise<{ success: boolean; error?: string }> {
+  const updateData: Record<string, any> = { outcome };
+
+  if (outcome === "lost" && lostReason) {
+    updateData.lost_reason = lostReason;
+  }
+  if (outcome === "won") {
+    updateData.lost_reason = null;  // Rensa om man ångrar sig
+  }
+
+  const { error } = await supabase
+    .from("quotes")
+    .update(updateData)
+    .eq("id", id);
+
+  if (error) return { success: false, error: error.message };
+  return { success: true };
 }
