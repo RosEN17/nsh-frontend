@@ -64,11 +64,15 @@ export default function SettingsPage() {
 
   useEffect(() => { setS(loadSettings()); }, []);
 
-  function handleSave() {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  async function handleSave() {
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+  setSaved(true);
+  setTimeout(() => setSaved(false), 2000);
+
+  if (s.company_name) {
+    await updateCompanyName(s.company_name);
   }
+}
 
   function upd(key: keyof Settings, val: any) {
     setS(prev => ({ ...prev, [key]: val }));
@@ -229,7 +233,7 @@ export default function SettingsPage() {
         Alla uppgifter visas automatiskt på offerter du laddar ner. Fält markerade med * är obligatoriska för en giltig offert.
       </div>
 
-      <button className="btn btn-primary" onClick={handleSave}>
+      <button className="btn btn-primary" onClick={() => handleSave()}>
         {saved ? "✓ Sparat" : "Spara inställningar"}
       </button>
     </ProtectedLayout>
