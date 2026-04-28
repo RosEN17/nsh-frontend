@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import ProtectedLayout from "@/components/ProtectedLayout";
 import Header from "@/components/Header";
+import { updateCompanyName } from "@/lib/company";
 
 const SETTINGS_KEY = "byggkalk_settings";
 
