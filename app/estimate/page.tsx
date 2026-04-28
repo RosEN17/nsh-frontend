@@ -320,14 +320,21 @@ function EstimateInner() {
     if (!settings.company_name) { alert("Fyll i företagsuppgifter under Inställningar först."); return; }
     setSending(true);
     const dataToSave = { ...result, categories };
-    const { id, error: sbErr } = await saveQuoteToSupabase(
-      pendingSendName || result.job_title || description,
-      result.job_summary || description,
-      customerName, customerEmail,
-      liveTotals.total_inc_vat,
-      liveTotals.customer_pays,
-      dataToSave, settings
-    );
+    cconst { id, error: sbErr } = await saveQuoteToSupabase(
+  pendingSendName || result.job_title || description,
+  result.job_summary || description,
+  customerName,
+  customerEmail,
+  liveTotals.total_inc_vat,
+  liveTotals.customer_pays,
+  { ...result, categories },
+  settings,
+  {
+    jobType:     jobType,
+    location:    fieldValues["location"] || "",  // Var jobbet utförs
+    buildParams: buildAiParams(),
+  }
+);
     if (sbErr || !id) { alert("Kunde inte spara offert: " + (sbErr || "Okänt fel")); setSending(false); return; }
     if (Object.keys(allEdits).length > 0) await writeCraftsmanEdits(id, allEdits);
     const acceptUrl   = `${window.location.origin}/accept?id=${id}`;
