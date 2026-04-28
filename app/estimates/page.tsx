@@ -4,24 +4,165 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import ProtectedLayout from "@/components/ProtectedLayout";
 import Header from "@/components/Header";
-import { getUserQuotes, QuoteRecord, getQuoteById } from "@/lib/quotes";
+import { getUserQuotes, QuoteRecord, updateOutcome } from "@/lib/quotes";
 import { getEstimates, deleteEstimate, renameEstimate, SavedEstimate } from "@/lib/store";
 
 function fmtKr(n: number): string {
   return new Intl.NumberFormat("sv-SE", { style: "decimal", maximumFractionDigits: 0 }).format(n) + " kr";
 }
 
-function fmtKr2(n: number): string {
-  return new Intl.NumberFormat("sv-SE", { style: "decimal", maximumFractionDigits: 0 }).format(n) + " kr";
-}
-
 type Tab = "draft" | "sent" | "accepted";
 
-// ── Offertvisningsmodal ────────────────────────────────────
+// ── Outcome-knappar ───────────────────────────────────────────────────────────
+// Visas på varje skickad offert — snickaren klickar Vann eller Förlorade
+function OutcomeButtons({
+  quote,
+  onUpdated,
+}: {
+  quote: QuoteRecord;
+  onUpdated: (id: string, outcome: "won" | "lost", lostReason?: string) => void;
+}) {
+  const [saving, setSaving]           = useState(false);
+  const [showLostInput, setShowLostInput] = useState(false);
+  const [lostReason, setLostReason]   = useState(quote.lost_reason || "");
+  const current = quote.outcome;
+
+  async function handleWon() {
+    setSaving(true);
+    setShowLostInput(false);
+    const { success } = await updateOutcome(quote.id, "won");
+    if (success) onUpdated(quote.id, "won");
+    setSaving(false);
+  }
+
+  async function handleLost() {
+    // Visa input för orsak om vi inte redan visar den
+    if (!showLostInput) {
+      setShowLostInput(true);
+      return;
+    }
+    // Spara med orsak
+    setSaving(true);
+    const { success } = await updateOutcome(quote.id, "lost", lostReason.trim() || undefined);
+    if (success) onUpdated(quote.id, "lost", lostReason.trim() || undefined);
+    setShowLostInput(false);
+    setSaving(false);
+  }
+
+  return (
+    <div
+      onClick={e => e.stopPropagation()}
+      style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}
+    >
+      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+
+        {/* Vann-knapp */}
+        <button
+          onClick={handleWon}
+          disabled={saving}
+          style={{
+            padding: "4px 12px",
+            borderRadius: 20,
+            fontSize: 11,
+            fontWeight: 600,
+            cursor: saving ? "default" : "pointer",
+            border: "0.5px solid",
+            borderColor:  current === "won" ? "rgba(34,197,94,0.6)"  : "var(--border-strong)",
+            background:   current === "won" ? "rgba(34,197,94,0.15)" : "transparent",
+            color:        current === "won" ? "#22c55e" : "var(--text-faint)",
+            transition:   "all 0.1s",
+          }}
+          onMouseEnter={e => {
+            if (current !== "won") {
+              (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(34,197,94,0.5)";
+              (e.currentTarget as HTMLButtonElement).style.color = "#22c55e";
+            }
+          }}
+          onMouseLeave={e => {
+            if (current !== "won") {
+              (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--border-strong)";
+              (e.currentTarget as HTMLButtonElement).style.color = "var(--text-faint)";
+            }
+          }}
+        >
+          {current === "won" ? "✓ Vann" : "Vann"}
+        </button>
+
+        {/* Förlorade-knapp */}
+        <button
+          onClick={handleLost}
+          disabled={saving}
+          style={{
+            padding: "4px 12px",
+            borderRadius: 20,
+            fontSize: 11,
+            fontWeight: 600,
+            cursor: saving ? "default" : "pointer",
+            border: "0.5px solid",
+            borderColor:  current === "lost" ? "rgba(239,68,68,0.6)"  : showLostInput ? "rgba(239,68,68,0.5)" : "var(--border-strong)",
+            background:   current === "lost" ? "rgba(239,68,68,0.12)" : showLostInput ? "rgba(239,68,68,0.08)" : "transparent",
+            color:        current === "lost" || showLostInput ? "#f87171" : "var(--text-faint)",
+            transition:   "all 0.1s",
+          }}
+          onMouseEnter={e => {
+            if (current !== "lost" && !showLostInput) {
+              (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(239,68,68,0.5)";
+              (e.currentTarget as HTMLButtonElement).style.color = "#f87171";
+            }
+          }}
+          onMouseLeave={e => {
+            if (current !== "lost" && !showLostInput) {
+              (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--border-strong)";
+              (e.currentTarget as HTMLButtonElement).style.color = "var(--text-faint)";
+            }
+          }}
+        >
+          {current === "lost"
+            ? "✗ Förlorade"
+            : showLostInput
+            ? "Spara orsak →"
+            : "Förlorade"}
+        </button>
+      </div>
+
+      {/* Fritext för förlorandeorsak — visas när snickaren klickar Förlorade */}
+      {showLostInput && (
+        <div style={{ display: "flex", gap: 6, alignItems: "center", width: "100%" }}>
+          <input
+            className="input"
+            autoFocus
+            value={lostReason}
+            onChange={e => setLostReason(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === "Enter") handleLost();
+              if (e.key === "Escape") setShowLostInput(false);
+            }}
+            placeholder="Varför? (valfritt — t.ex. för dyr, valde annan firma)"
+            style={{ fontSize: 12, padding: "5px 10px", flex: 1 }}
+          />
+          <button
+            onClick={() => setShowLostInput(false)}
+            style={{ background: "none", border: "none", color: "var(--text-faint)", cursor: "pointer", fontSize: 16, padding: "0 4px" }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Visa befintlig orsak om offerten redan är förlorad */}
+      {current === "lost" && quote.lost_reason && (
+        <div style={{ fontSize: 11, color: "var(--text-faint)", fontStyle: "italic", maxWidth: 220, textAlign: "right" }}>
+          {quote.lost_reason}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Offertvisningsmodal ───────────────────────────────────────────────────────
 function QuoteViewModal({ quote, onClose }: { quote: QuoteRecord; onClose: () => void }) {
-  const t = quote.quote_data?.totals || {};
+  const t      = quote.quote_data?.totals || {};
   const result = quote.quote_data || {};
-  const settings = quote.settings_data || {};
 
   function fmtDate(d: string | null) {
     if (!d) return "—";
@@ -31,6 +172,7 @@ function QuoteViewModal({ quote, onClose }: { quote: QuoteRecord; onClose: () =>
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 1000, overflowY: "auto", padding: "32px 16px" }}>
       <div style={{ background: "var(--bg-elevated)", border: "0.5px solid var(--border)", borderRadius: "var(--radius-lg)", width: 720, maxWidth: "100%", overflow: "hidden" }}>
+
         {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: "0.5px solid var(--border)" }}>
           <div>
@@ -42,21 +184,19 @@ function QuoteViewModal({ quote, onClose }: { quote: QuoteRecord; onClose: () =>
             </div>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {statusBadge(quote.status)}
+            {statusBadge(quote.status, quote.outcome)}
             <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--text-faint)", cursor: "pointer", fontSize: 20, lineHeight: 1, padding: "4px 8px" }}>✕</button>
           </div>
         </div>
 
         {/* Body */}
         <div style={{ padding: "24px", maxHeight: "70vh", overflowY: "auto" }}>
-          {/* Sammanfattning */}
           {result.job_summary && (
             <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 20, padding: "12px 16px", background: "var(--bg-surface)", borderRadius: "var(--radius)", borderLeft: "3px solid var(--accent)" }}>
               {result.job_summary}
             </div>
           )}
 
-          {/* Tabell */}
           {(result.categories || []).length > 0 && (
             <div style={{ marginBottom: 20, border: "0.5px solid var(--border)", borderRadius: "var(--radius)", overflow: "hidden" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
@@ -98,15 +238,14 @@ function QuoteViewModal({ quote, onClose }: { quote: QuoteRecord; onClose: () =>
             </div>
           )}
 
-          {/* Summering */}
           <div style={{ maxWidth: 320, marginLeft: "auto", fontSize: 13 }}>
             {[
-              { label: "Material", val: t.material_total },
-              { label: "Arbete", val: t.labor_total },
-              { label: "Utrustning", val: t.equipment_total },
+              { label: "Material",                         val: t.material_total },
+              { label: "Arbete",                           val: t.labor_total },
+              { label: "Utrustning",                       val: t.equipment_total },
               { label: `Påslag (${result.meta?.margin_pct || 15}%)`, val: t.margin_amount },
-              { label: "Summa exkl. moms", val: t.total_ex_vat },
-              { label: "Moms (25%)", val: t.vat },
+              { label: "Summa exkl. moms",                 val: t.total_ex_vat },
+              { label: "Moms (25%)",                       val: t.vat },
             ].filter(r => r.val).map(r => (
               <div key={r.label} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", color: "var(--text-muted)" }}>
                 <span>{r.label}</span>
@@ -131,7 +270,6 @@ function QuoteViewModal({ quote, onClose }: { quote: QuoteRecord; onClose: () =>
             )}
           </div>
 
-          {/* Accepterad info */}
           {quote.status === "accepted" && quote.accepted_at && (
             <div style={{ marginTop: 20, padding: "12px 16px", background: "rgba(34,197,94,0.08)", border: "0.5px solid rgba(34,197,94,0.3)", borderRadius: "var(--radius)", fontSize: 12, color: "#22c55e" }}>
               ✅ Godkänd av kund den {fmtDate(quote.accepted_at)}
@@ -139,8 +277,7 @@ function QuoteViewModal({ quote, onClose }: { quote: QuoteRecord; onClose: () =>
           )}
         </div>
 
-        {/* Footer */}
-        <div style={{ padding: "16px 24px", borderTop: "0.5px solid var(--border)", display: "flex", justifyContent: "flex-end", gap: 8 }}>
+        <div style={{ padding: "16px 24px", borderTop: "0.5px solid var(--border)", display: "flex", justifyContent: "flex-end" }}>
           <button className="btn btn-secondary btn-sm" onClick={onClose}>Stäng</button>
         </div>
       </div>
@@ -148,11 +285,28 @@ function QuoteViewModal({ quote, onClose }: { quote: QuoteRecord; onClose: () =>
   );
 }
 
-function statusBadge(status: string) {
+// ── Statusbadge ───────────────────────────────────────────────────────────────
+function statusBadge(status: string, outcome?: string | null) {
+  // Outcome åsidosätter status-badge för skickade offerter
+  if (outcome === "won") {
+    return (
+      <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: "rgba(34,197,94,0.15)", color: "#22c55e" }}>
+        Vann
+      </span>
+    );
+  }
+  if (outcome === "lost") {
+    return (
+      <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: "rgba(239,68,68,0.12)", color: "#f87171" }}>
+        Förlorade
+      </span>
+    );
+  }
+
   const styles: Record<string, { bg: string; color: string; label: string }> = {
-    draft: { bg: "rgba(148,163,184,0.15)", color: "#94a3b8", label: "Utkast" },
-    sent: { bg: "rgba(59,130,246,0.15)", color: "#60a5fa", label: "Skickad" },
-    accepted: { bg: "rgba(34,197,94,0.15)", color: "#22c55e", label: "Godkänd" },
+    draft:    { bg: "rgba(148,163,184,0.15)", color: "#94a3b8", label: "Utkast" },
+    sent:     { bg: "rgba(59,130,246,0.15)",  color: "#60a5fa", label: "Skickad" },
+    accepted: { bg: "rgba(34,197,94,0.15)",   color: "#22c55e", label: "Godkänd" },
   };
   const s = styles[status] || styles.draft;
   return (
@@ -162,16 +316,17 @@ function statusBadge(status: string) {
   );
 }
 
+// ── Huvudkomponent ────────────────────────────────────────────────────────────
 export default function EstimatesPage() {
   const router = useRouter();
-  const [tab, setTab] = useState<Tab>("draft");
-  const [drafts, setDrafts] = useState<SavedEstimate[]>([]);
-  const [sentQuotes, setSentQuotes] = useState<QuoteRecord[]>([]);
+  const [tab, setTab]                       = useState<Tab>("draft");
+  const [drafts, setDrafts]                 = useState<SavedEstimate[]>([]);
+  const [sentQuotes, setSentQuotes]         = useState<QuoteRecord[]>([]);
   const [acceptedQuotes, setAcceptedQuotes] = useState<QuoteRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editName, setEditName] = useState("");
-  const [viewingQuote, setViewingQuote] = useState<QuoteRecord | null>(null);
+  const [loading, setLoading]               = useState(true);
+  const [editingId, setEditingId]           = useState<string | null>(null);
+  const [editName, setEditName]             = useState("");
+  const [viewingQuote, setViewingQuote]     = useState<QuoteRecord | null>(null);
 
   useEffect(() => {
     setDrafts(getEstimates());
@@ -182,6 +337,17 @@ export default function EstimatesPage() {
     });
   }, []);
 
+  // Uppdatera outcome lokalt utan att ladda om hela listan
+  function handleOutcomeUpdated(id: string, outcome: "won" | "lost", lostReason?: string) {
+    setSentQuotes(prev =>
+      prev.map(q =>
+        q.id === id
+          ? { ...q, outcome, lost_reason: lostReason || q.lost_reason || null }
+          : q
+      )
+    );
+  }
+
   function handleDelete(id: string, name: string) {
     if (!confirm(`Ta bort "${name}"?`)) return;
     deleteEstimate(id);
@@ -190,10 +356,6 @@ export default function EstimatesPage() {
 
   function handleViewDraft(est: SavedEstimate) {
     router.push("/estimate?view=" + est.id);
-  }
-
-  function handleViewQuote(q: QuoteRecord) {
-    setViewingQuote(q);
   }
 
   function startRename(est: SavedEstimate) {
@@ -215,8 +377,8 @@ export default function EstimatesPage() {
   }
 
   const tabs: { id: Tab; label: string; count: number }[] = [
-    { id: "draft", label: "Utkast", count: drafts.length },
-    { id: "sent", label: "Skickade", count: sentQuotes.length },
+    { id: "draft",    label: "Utkast",   count: drafts.length },
+    { id: "sent",     label: "Skickade", count: sentQuotes.length },
     { id: "accepted", label: "Godkända", count: acceptedQuotes.length },
   ];
 
@@ -254,6 +416,13 @@ export default function EstimatesPage() {
         ))}
       </div>
 
+      {/* Lathund för skickade-fliken */}
+      {tab === "sent" && sentQuotes.length > 0 && (
+        <div style={{ marginBottom: 12, padding: "8px 14px", background: "rgba(106,129,147,0.06)", border: "0.5px solid var(--border)", borderRadius: "var(--radius)", fontSize: 12, color: "var(--text-faint)" }}>
+          Markera varje offert som Vann eller Förlorade när du vet utfallet — det förbättrar AI:ns kalkyler.
+        </div>
+      )}
+
       {/* Content */}
       {loading && tab !== "draft" ? (
         <div className="card" style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}>
@@ -264,13 +433,13 @@ export default function EstimatesPage() {
           <div className="empty-state">
             <div className="empty-icon">{tab === "draft" ? "📝" : tab === "sent" ? "📤" : "✅"}</div>
             <div className="empty-title">
-              {tab === "draft" && "Inga utkast"}
-              {tab === "sent" && "Inga skickade offerter"}
+              {tab === "draft"    && "Inga utkast"}
+              {tab === "sent"     && "Inga skickade offerter"}
               {tab === "accepted" && "Inga godkända offerter"}
             </div>
             <div className="empty-desc">
-              {tab === "draft" && "Kalkyler du sparar som utkast visas här."}
-              {tab === "sent" && "Offerter du skickat till kunder visas här."}
+              {tab === "draft"    && "Kalkyler du sparar som utkast visas här."}
+              {tab === "sent"     && "Offerter du skickat till kunder visas här."}
               {tab === "accepted" && "Offerter som kunder godkänt visas här."}
             </div>
             <button className="btn btn-primary" onClick={() => router.push("/estimate")}>
@@ -280,6 +449,7 @@ export default function EstimatesPage() {
         </div>
       ) : (
         <div>
+
           {/* ── UTKAST ── */}
           {tab === "draft" && drafts.map((est) => (
             <div key={est.id} className="est-list-item" style={{ position: "relative" }}>
@@ -315,10 +485,31 @@ export default function EstimatesPage() {
             </div>
           ))}
 
-          {/* ── SKICKADE ── */}
+          {/* ── SKICKADE — med Vann/Förlorade-knappar ── */}
           {tab === "sent" && sentQuotes.map((q) => (
-            <div key={q.id} className="est-list-item" style={{ cursor: "pointer" }} onClick={() => handleViewQuote(q)}>
-              <div className="est-list-icon">📤</div>
+            <div
+              key={q.id}
+              className="est-list-item"
+              style={{
+                cursor: "pointer",
+                alignItems: "flex-start",
+                paddingTop: 14,
+                paddingBottom: 14,
+                // Grön/röd vänsterkant baserat på outcome
+                borderLeft: q.outcome === "won"
+                  ? "3px solid rgba(34,197,94,0.5)"
+                  : q.outcome === "lost"
+                  ? "3px solid rgba(239,68,68,0.4)"
+                  : "3px solid transparent",
+              }}
+              onClick={() => setViewingQuote(q)}
+            >
+              {/* Ikon */}
+              <div className="est-list-icon" style={{ marginTop: 2 }}>
+                {q.outcome === "won" ? "🏆" : q.outcome === "lost" ? "❌" : "📤"}
+              </div>
+
+              {/* Info */}
               <div className="est-list-info" style={{ flex: 1, minWidth: 0 }}>
                 <div className="est-list-title">{q.title}</div>
                 <div className="est-list-meta">
@@ -327,21 +518,24 @@ export default function EstimatesPage() {
                   {q.customer_email && ` · ${q.customer_email}`}
                 </div>
               </div>
-              <div style={{ marginRight: 8 }}>{statusBadge("sent")}</div>
-              <div className="est-list-amount" style={{ marginRight: 8 }}>{fmtKr(q.customer_pays || q.total_inc_vat || 0)}</div>
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={e => { e.stopPropagation(); handleViewQuote(q); }}
-                style={{ fontSize: 12, padding: "5px 12px" }}
+
+              {/* Höger: belopp + outcome-knappar */}
+              <div
+                style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, flexShrink: 0 }}
+                onClick={e => e.stopPropagation()}
               >
-                Se offert
-              </button>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div className="est-list-amount">{fmtKr(q.customer_pays || q.total_inc_vat || 0)}</div>
+                  {statusBadge("sent", q.outcome)}
+                </div>
+                <OutcomeButtons quote={q} onUpdated={handleOutcomeUpdated} />
+              </div>
             </div>
           ))}
 
           {/* ── GODKÄNDA ── */}
           {tab === "accepted" && acceptedQuotes.map((q) => (
-            <div key={q.id} className="est-list-item" style={{ cursor: "pointer" }} onClick={() => handleViewQuote(q)}>
+            <div key={q.id} className="est-list-item" style={{ cursor: "pointer" }} onClick={() => setViewingQuote(q)}>
               <div className="est-list-icon">✅</div>
               <div className="est-list-info" style={{ flex: 1, minWidth: 0 }}>
                 <div className="est-list-title">{q.title}</div>
@@ -355,7 +549,7 @@ export default function EstimatesPage() {
               <div className="est-list-amount" style={{ marginRight: 8 }}>{fmtKr(q.customer_pays || q.total_inc_vat || 0)}</div>
               <button
                 className="btn btn-secondary btn-sm"
-                onClick={e => { e.stopPropagation(); handleViewQuote(q); }}
+                onClick={e => { e.stopPropagation(); setViewingQuote(q); }}
                 style={{ fontSize: 12, padding: "5px 12px" }}
               >
                 Se offert
@@ -365,7 +559,6 @@ export default function EstimatesPage() {
         </div>
       )}
 
-      {/* Offertvisningsmodal */}
       {viewingQuote && (
         <QuoteViewModal
           quote={viewingQuote}
