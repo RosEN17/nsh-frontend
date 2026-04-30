@@ -648,7 +648,7 @@ function EstimateInner() {
     "Bygger din kalkyl...",
   ];
 
-  // Konvertera en File till base64 data-URL
+  // Konvertera en File till base64 — bilder komprimeras till max 800px och 70% kvalitet
   function fileToBase64(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -656,6 +656,63 @@ function EstimateInner() {
       reader.onerror = reject;
       reader.readAsDataURL(file);
     });
+  }
+
+  // Foton — komprimeras hårt (800px, 70% kvalitet)
+  function compressPhoto(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const MAX = 800;
+          const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+          const w = Math.round(img.width * scale);
+          const h = Math.round(img.height * scale);
+          const canvas = document.createElement("canvas");
+          canvas.width = w; canvas.height = h;
+          canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL("image/jpeg", 0.70));
+        };
+        img.onerror = reject;
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // Ritningar och anteckningar — hög upplösning för läsbar text och mått
+  // Fungerar med JPG, JPEG, PNG, HEIC — alla bildformat
+  function compressDrawing(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          // Max 2000px på längsta sidan — behåller text och mått läsbara
+          const MAX = 2000;
+          const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+          const w = Math.round(img.width * scale);
+          const h = Math.round(img.height * scale);
+          const canvas = document.createElement("canvas");
+          canvas.width = w; canvas.height = h;
+          canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+          // JPEG 95% kvalitet — skarp nog för text, rimlig filstorlek
+          resolve(canvas.toDataURL("image/jpeg", 0.95));
+        };
+        img.onerror = reject;
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function toPayload(file: File, type: "photo" | "drawing" | "pdf" = "photo") {
+    if (type === "pdf")     return { name: file.name, data: await fileToBase64(file) };
+    if (type === "drawing") return { name: `[RITNING] ${file.name}`, data: await compressDrawing(file) };
+    return { name: file.name, data: await compressPhoto(file) };
   }
 
   async function handleGenerate() {
@@ -672,32 +729,26 @@ function EstimateInner() {
     const buildParams = buildAiParams();
 
     try {
-      // Konvertera projektbilder till base64
+      // Projektbilder — komprimeras hårt (foton)
       const imagePayload = await Promise.all(
-        imageFiles.map(async (f) => ({
-          name: f.name,
-          data: await fileToBase64(f),
-        }))
+        imageFiles.map((f) => toPayload(f, "photo"))
       );
 
-      // Konvertera PDF-underlag till base64
+      // PDF-underlag — skickas oförändrade
       const pdfPayload = await Promise.all(
-        pdfFiles.map(async (f) => ({
-          name: f.name,
-          data: await fileToBase64(f),
-        }))
+        pdfFiles.map((f) => toPayload(f, "pdf"))
       );
 
-      // Konvertera ritningar — bilder skickas som images, PDFs som documents
+      // Ritningar och anteckningar — hög upplösning PNG för läsbar text
       const drawingImages = await Promise.all(
         drawingFiles
           .filter((f) => !f.name.toLowerCase().endsWith(".pdf"))
-          .map(async (f) => ({ name: f.name, data: await fileToBase64(f) }))
+          .map((f) => toPayload(f, "drawing"))
       );
       const drawingPdfs = await Promise.all(
         drawingFiles
           .filter((f) => f.name.toLowerCase().endsWith(".pdf"))
-          .map(async (f) => ({ name: f.name, data: await fileToBase64(f) }))
+          .map((f) => toPayload(f, "pdf"))
       );
 
       const data = await createEstimate({
