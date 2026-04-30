@@ -51,19 +51,25 @@ const JOB_PARAMS: Record<string, JobParams> = {
   badrum: {
     pill: "AI beräknar kakelyta, tätskikt och material exakt",
     fields: [
-      { key: "floor_sqm",      label: "Golvyta",              unit: "m²", defaultVal: "", hint: "Klinker/kakel golv + tätskikt", type: "number" },
+      { key: "room_dimensions",label: "Rumsmått (B×L)",       unit: "m",  defaultVal: "", hint: "T.ex. 2.3 x 3.4 — AI räknar golvyta automatiskt", type: "text" },
       { key: "ceiling_height", label: "Takhöjd",              unit: "m",  defaultVal: "2.4", hint: "Beräknar total väggarea", type: "number" },
-      { key: "tiled_walls",    label: "Kaklade väggar",       unit: "st", defaultVal: "4", hint: "Antal väggar som kaklas", type: "number" },
-      { key: "tile_height",    label: "Kakelhöjd på vägg",    unit: "m",  defaultVal: "2.4", hint: "Full = takhöjd, annars ange höjd", type: "number" },
+      { key: "tile_pattern",   label: "Kakelmönster",         unit: "",   defaultVal: "Helkakel zon 1 + halvkakel övr", hint: "Påverkar exakt kakelyta", type: "select",
+        options: ["Helkakel alla väggar", "Helkakel zon 1 + halvkakel övr", "Halvkakel alla", "Endast våtzon kakel"] },
+      { key: "tile_height",    label: "Halvkakel-höjd",       unit: "m",  defaultVal: "1.2", hint: "Höjd på halvkakel där det gäller", type: "number" },
       { key: "openings",       label: "Dörrar & fönster",     unit: "st", defaultVal: "1", hint: "Dras av från väggyta", type: "number" },
       { key: "location",       label: "Plats",                unit: "",   defaultVal: "", hint: "Påverkar materialpris & ROT", type: "text" },
     ],
     checks: [
+      { key: "ue_vvs",         label: "VVS som UE",           defaultOn: true  },
+      { key: "ue_el",          label: "El som UE",            defaultOn: true  },
+      { key: "ue_tile",        label: "Plattsättning som UE", defaultOn: true  },
       { key: "shower_glass",   label: "Dusch med glasvägg",   defaultOn: true  },
       { key: "bathtub",        label: "Badkar",               defaultOn: false },
       { key: "toilet_sink",    label: "Toalett & handfat",    defaultOn: true  },
       { key: "demo_tiles",     label: "Riva befintligt kakel",defaultOn: true  },
       { key: "floor_heating",  label: "Golvvärme",            defaultOn: false },
+      { key: "lowered_ceiling",label: "Nersänkt tak m. spotar",defaultOn: false },
+      { key: "drain_replace",  label: "Byta golvbrunn",       defaultOn: false },
     ],
   },
   kok: {
@@ -76,6 +82,8 @@ const JOB_PARAMS: Record<string, JobParams> = {
       { key: "location",       label: "Plats",                unit: "",   defaultVal: "", hint: "Påverkar priser & ROT", type: "text" },
     ],
     checks: [
+      { key: "ue_vvs",         label: "VVS som UE",            defaultOn: true  },
+      { key: "ue_el",          label: "El som UE",             defaultOn: true  },
       { key: "demo_kitchen",   label: "Rivning av gammalt kök",defaultOn: true  },
       { key: "dishwasher",     label: "Ny diskmaskin",         defaultOn: false },
       { key: "stove",          label: "Ny spis/häll",          defaultOn: false },
@@ -181,12 +189,15 @@ const JOB_PARAMS: Record<string, JobParams> = {
   tillbyggnad: {
     pill: "AI beräknar stomme, isolering och ytskikt",
     fields: [
-      { key: "addition_sqm",   label: "Tillbyggnadsarea",     unit: "m²", defaultVal: "", hint: "Bruttoarea ny del", type: "number" },
+      { key: "room_dimensions",label: "Mått (B×L)",           unit: "m",  defaultVal: "", hint: "T.ex. 4 x 5 — räknar area automatiskt", type: "text" },
+      { key: "addition_sqm",   label: "Eller area direkt",    unit: "m²", defaultVal: "", hint: "Fyll bara om du saknar mått", type: "number" },
       { key: "ceiling_height", label: "Takhöjd",              unit: "m",  defaultVal: "2.4", hint: "Invändig takhöjd", type: "number" },
       { key: "windows",        label: "Antal fönster",        unit: "st", defaultVal: "", hint: "Nya fönster i tillbyggnad", type: "number" },
       { key: "location",       label: "Plats",                unit: "",   defaultVal: "", hint: "Påverkar priser", type: "text" },
     ],
     checks: [
+      { key: "ue_vvs",         label: "VVS som UE",           defaultOn: true  },
+      { key: "ue_el",          label: "El som UE",            defaultOn: true  },
       { key: "slab",           label: "Platta på mark",       defaultOn: true  },
       { key: "crawl_space",    label: "Krypgrund",            defaultOn: false },
       { key: "heating",        label: "Radiatorer/golvvärme", defaultOn: true  },
@@ -537,6 +548,7 @@ function EstimateInner() {
   // Kalkylparametrar
   const [hourlyRate, setHourlyRate] = useState("650");
   const [marginPct, setMarginPct] = useState("15");
+  const [ueMarkupPct, setUeMarkupPct] = useState("12.5");
   const [includeRot, setIncludeRot] = useState(true);
 
   // Resultat
@@ -592,6 +604,7 @@ function EstimateInner() {
     const s = getSettings();
     if (s.hourly_rate) setHourlyRate(String(s.hourly_rate));
     if (s.margin_pct !== undefined) setMarginPct(String(s.margin_pct));
+    if (s.ue_markup_pct !== undefined) setUeMarkupPct(String(s.ue_markup_pct));
     if (s.include_rot !== undefined) setIncludeRot(s.include_rot);
   }, []);
 
@@ -757,6 +770,7 @@ function EstimateInner() {
         location: location || undefined,
         hourly_rate: parseFloat(hourlyRate) || 650,
         margin_pct: parseFloat(marginPct) || 15,
+        ue_markup_pct: parseFloat(ueMarkupPct) || 12.5,
         include_rot: includeRot,
         build_params: buildParams,
         images: [...imagePayload, ...drawingImages],
@@ -1346,10 +1360,12 @@ function EstimateInner() {
 
       <div className="est-total-section">
         <div className="est-total-row"><span className="label-text">Material</span><span className="value">{fmtKr(t.material_total || 0)}</span></div>
-        <div className="est-total-row"><span className="label-text">Arbete</span><span className="value">{fmtKr(t.labor_total || 0)}</span></div>
+        <div className="est-total-row"><span className="label-text">Arbete (eget)</span><span className="value">{fmtKr(t.labor_total || 0)}</span></div>
+        {(t.subcontractor_total || 0) > 0 && <div className="est-total-row"><span className="label-text">Underentreprenörer</span><span className="value">{fmtKr(t.subcontractor_total)}</span></div>}
         {(t.equipment_total || 0) > 0 && <div className="est-total-row"><span className="label-text">Utrustning</span><span className="value">{fmtKr(t.equipment_total)}</span></div>}
         <div className="est-total-row"><span className="label-text">Delsumma</span><span className="value">{fmtKr(t.subtotal || 0)}</span></div>
-        {(t.margin_amount || 0) > 0 && <div className="est-total-row"><span className="label-text">Påslag ({result.meta?.margin_pct || 15}%)</span><span className="value">{fmtKr(t.margin_amount)}</span></div>}
+        {(t.own_margin || 0) > 0 && <div className="est-total-row"><span className="label-text">Påslag eget arbete & material ({result.meta?.margin_pct || 15}%)</span><span className="value">{fmtKr(t.own_margin)}</span></div>}
+        {(t.ue_markup || 0) > 0 && <div className="est-total-row"><span className="label-text">Påslag UE ({result.meta?.ue_markup_pct || 12.5}%)</span><span className="value">{fmtKr(t.ue_markup)}</span></div>}
         <div className="est-total-row"><span className="label-text">Summa exkl. moms</span><span className="value">{fmtKr(t.total_ex_vat || 0)}</span></div>
         <div className="est-total-row"><span className="label-text">Moms (25%)</span><span className="value">{fmtKr(t.vat || 0)}</span></div>
         <div className="est-total-row big"><span>Totalt inkl. moms</span><span className="value">{fmtKr(t.total_inc_vat || 0)}</span></div>
