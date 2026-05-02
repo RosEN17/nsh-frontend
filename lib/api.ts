@@ -11,7 +11,6 @@ async function extractError(res: Response): Promise<string> {
   return `HTTP ${res.status}: ${res.statusText || "Serverfel"}`;
 }
 
-// Hämta Supabase JWT för Authorization-header
 async function getAuthHeader(): Promise<Record<string, string>> {
   try {
     const { data } = await supabase.auth.getSession();
@@ -21,11 +20,15 @@ async function getAuthHeader(): Promise<Record<string, string>> {
   return {};
 }
 
-export async function createEstimate(body: {
+export interface EstimateRequest {
   description: string;
   job_type?: string;
   area_sqm?: number;
   location?: string;
+  address?: string;
+  distance_km?: number;
+  work_days?: number;
+  quality?: "standard" | "premium";
   hourly_rate?: number;
   include_rot?: boolean;
   margin_pct?: number;
@@ -33,7 +36,9 @@ export async function createEstimate(body: {
   build_params?: Record<string, string>;
   images?: Array<{ name: string; data: string }>;
   documents?: Array<{ name: string; data: string }>;
-}) {
+}
+
+export async function createEstimate(body: EstimateRequest) {
   const authHeader = await getAuthHeader();
   const res = await fetch(`${API}/api/estimate`, {
     method: "POST",
@@ -61,8 +66,17 @@ export async function getJobTypes() {
   return res.json();
 }
 
+export async function getPricing(jobType: string, quality: string = "standard", region: string = "default") {
+  const authHeader = await getAuthHeader();
+  const res = await fetch(`${API}/api/admin/pricing/${jobType}?quality=${quality}&region=${region}`, {
+    headers: authHeader,
+  });
+  if (!res.ok) throw new Error(await extractError(res));
+  return res.json();
+}
+
 // ----------------------------------------------------------------
-// Spara snickares justering av ett AI-förslag
+// Feedback
 // ----------------------------------------------------------------
 
 interface EditValue {
@@ -82,6 +96,8 @@ export interface FeedbackPayload {
   job_type?: string;
   region?: string;
   all_edits?: Record<string, EditValue>;
+  source_id?: string;
+  source_table?: string;
 }
 
 export async function saveFeedback(payload: FeedbackPayload): Promise<void> {
