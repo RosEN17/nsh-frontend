@@ -33,6 +33,8 @@ export interface QuoteRecord {
   work_items: string[] | null;
   craftsman_name: string | null;
   pricing_snapshot: any | null;
+  actual_final_price: number | null;
+  price_accuracy_pct: number | null;
 }
 
 function detectComplexity(result: any): string {
