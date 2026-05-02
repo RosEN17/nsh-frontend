@@ -11,16 +11,10 @@ import RowFeedbackModal, { type RowEdit, type QuoteRow } from "@/components/RowF
 
 // ── Jobbtyper ────────────────────────────────────────────────────────────────
 const JOB_TYPES = [
-  { id: "badrum",     label: "Badrum",      icon: <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M2 9h12v3a2 2 0 01-2 2H4a2 2 0 01-2-2V9z"/><path d="M2 9V5a2 2 0 012-2h1v6" strokeLinecap="round"/><circle cx="11" cy="5" r="1.5"/></svg> },
-  { id: "kok",        label: "Kök",         icon: <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3"><rect x="1" y="5" width="14" height="9" rx="1.5"/><path d="M4 5V4a1 1 0 011-1h6a1 1 0 011 1v1" strokeLinecap="round"/><path d="M5 9h2M9 9h2" strokeLinecap="round"/></svg> },
-  { id: "tak",        label: "Tak",         icon: <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M1 14h14M2 14V8l6-6 6 6v6" strokeLinecap="round" strokeLinejoin="round"/></svg> },
-  { id: "fasad",      label: "Fasad",       icon: <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3"><rect x="1" y="1" width="14" height="14" rx="1.5"/><path d="M1 6h14M6 6v8M10 6v8" strokeWidth="1"/></svg> },
-  { id: "golv",       label: "Golv",        icon: <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3"><rect x="1" y="10" width="14" height="4" rx="1"/><path d="M3 10V7M7 10V5M11 10V7M13 10V6" strokeLinecap="round"/></svg> },
-  { id: "malning",    label: "Målning",     icon: <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M3 12L10 5l2 2-7 7-2-2z"/><path d="M12 3l1 1-1 1-1-1 1-1z" strokeLinejoin="round"/><path d="M3 12l-1 2 2-1" strokeLinecap="round"/></svg> },
-  { id: "el",         label: "El",          icon: <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M9 2L5 9h5l-3 5" strokeLinecap="round" strokeLinejoin="round"/></svg> },
-  { id: "vvs",        label: "VVS",         icon: <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M3 3v4a2 2 0 002 2h6a2 2 0 012 2v2" strokeLinecap="round"/><circle cx="3" cy="3" r="1.5"/><circle cx="13" cy="13" r="1.5"/></svg> },
-  { id: "tillbyggnad",label: "Tillbyggnad", icon: <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3"><rect x="1" y="7" width="7" height="8" rx="1"/><rect x="8" y="1" width="7" height="8" rx="1"/></svg> },
-  { id: "ovrigt",     label: "Övrigt",      icon: <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M8 5v6M5 8h6" strokeLinecap="round"/></svg> },
+  { id: "rivning", label: "Rivning",     icon: <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M2 13h12M3 13V8h3v5M7 13V5h3v8M11 13V9h3v4" strokeLinecap="round" strokeLinejoin="round"/></svg> },
+  { id: "fasad",   label: "Fasad",       icon: <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3"><rect x="1" y="1" width="14" height="14" rx="1.5"/><path d="M1 6h14M6 6v8M10 6v8" strokeWidth="1"/></svg> },
+  { id: "altan",   label: "Altan/Trall", icon: <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3"><rect x="1" y="10" width="14" height="4" rx="1"/><path d="M3 10V7M7 10V5M11 10V7M13 10V6" strokeLinecap="round"/></svg> },
+  { id: "ovrigt",  label: "Övrigt",      icon: <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M8 5v6M5 8h6" strokeLinecap="round"/></svg> },
 ];
 
 // ── Typer ────────────────────────────────────────────────────────────────────
@@ -48,172 +42,83 @@ interface JobParams {
 
 // ── Smarta parametrar per jobbtyp ────────────────────────────────────────────
 const JOB_PARAMS: Record<string, JobParams> = {
-  badrum: {
-    pill: "AI beräknar kakelyta, tätskikt och material exakt",
+  rivning: {
+    pill: "AI beräknar rivningsvolym, container och deponi",
     fields: [
-      { key: "room_dimensions",label: "Rumsmått (B×L)",       unit: "m",  defaultVal: "", hint: "T.ex. 2.3 x 3.4 — AI räknar golvyta automatiskt", type: "text" },
-      { key: "ceiling_height", label: "Takhöjd",              unit: "m",  defaultVal: "2.4", hint: "Beräknar total väggarea", type: "number" },
-      { key: "tile_pattern",   label: "Kakelmönster",         unit: "",   defaultVal: "Helkakel zon 1 + halvkakel övr", hint: "Påverkar exakt kakelyta", type: "select",
-        options: ["Helkakel alla väggar", "Helkakel zon 1 + halvkakel övr", "Halvkakel alla", "Endast våtzon kakel"] },
-      { key: "tile_height",    label: "Halvkakel-höjd",       unit: "m",  defaultVal: "1.2", hint: "Höjd på halvkakel där det gäller", type: "number" },
-      { key: "openings",       label: "Dörrar & fönster",     unit: "st", defaultVal: "1", hint: "Dras av från väggyta", type: "number" },
-      { key: "location",       label: "Plats",                unit: "",   defaultVal: "", hint: "Påverkar materialpris & ROT", type: "text" },
+      { key: "rivning_scope",     label: "Vad ska rivas",        unit: "",   defaultVal: "Badrum komplett", hint: "Välj typ av rivning", type: "select",
+        options: ["Badrum komplett", "Kök komplett", "Innervägg", "Innertak", "Yttertak", "Fasad", "Hela inredning", "Annat"] },
+      { key: "demolition_volume", label: "Uppskattad volym",     unit: "kbm", defaultVal: "", hint: "Hur mycket material i rivningen", type: "number" },
+      { key: "floor_sqm",         label: "Yta som påverkas",     unit: "m²", defaultVal: "", hint: "Total yta för rivningen", type: "number" },
+      { key: "build_year",        label: "Byggår",                unit: "",  defaultVal: "", hint: "Pre-1975 = asbestrisk", type: "number" },
+      { key: "location",          label: "Stad/region",          unit: "",   defaultVal: "", hint: "Stockholm/Göteborg/övriga", type: "text" },
     ],
     checks: [
-      { key: "ue_vvs",         label: "VVS som UE",           defaultOn: true  },
-      { key: "ue_el",          label: "El som UE",            defaultOn: true  },
-      { key: "ue_tile",        label: "Plattsättning som UE", defaultOn: true  },
-      { key: "shower_glass",   label: "Dusch med glasvägg",   defaultOn: true  },
-      { key: "bathtub",        label: "Badkar",               defaultOn: false },
-      { key: "toilet_sink",    label: "Toalett & handfat",    defaultOn: true  },
-      { key: "demo_tiles",     label: "Riva befintligt kakel",defaultOn: true  },
-      { key: "floor_heating",  label: "Golvvärme",            defaultOn: false },
-      { key: "lowered_ceiling",label: "Nersänkt tak m. spotar",defaultOn: false },
-      { key: "drain_replace",  label: "Byta golvbrunn",       defaultOn: false },
+      { key: "demo_floor",      label: "Riv golv",                       defaultOn: false },
+      { key: "demo_walls",      label: "Riv väggar",                     defaultOn: false },
+      { key: "demo_ceiling",    label: "Riv tak",                        defaultOn: false },
+      { key: "demo_kitchen",    label: "Riv köksinredning",              defaultOn: false },
+      { key: "demo_bathroom",   label: "Riv badrumsinredning",           defaultOn: false },
+      { key: "container_inc",   label: "Container ingår",                defaultOn: true  },
+      { key: "transport_inc",   label: "Bortforsling ingår",             defaultOn: true  },
+      { key: "asbest_risk",     label: "Misstänkt asbest (sanering UE)", defaultOn: false },
+      { key: "mogel_risk",      label: "Misstänkt mögel (sanering UE)",  defaultOn: false },
     ],
   },
-  kok: {
-    pill: "AI beräknar skåp, bänkskiva och installation",
-    fields: [
-      { key: "kitchen_width",  label: "Kökets bredd",         unit: "m",  defaultVal: "", hint: "Totalt löpmeter köksskåp", type: "number" },
-      { key: "base_cabinets",  label: "Antal basskåp",        unit: "st", defaultVal: "", hint: "60 cm-moduler under bänk", type: "number" },
-      { key: "wall_cabinets",  label: "Antal hängskåp",       unit: "st", defaultVal: "", hint: "Skåp ovan bänk", type: "number" },
-      { key: "countertop_len", label: "Bänkskivans längd",    unit: "m",  defaultVal: "", hint: "Inkl. hörn om L-kök", type: "number" },
-      { key: "location",       label: "Plats",                unit: "",   defaultVal: "", hint: "Påverkar priser & ROT", type: "text" },
-    ],
-    checks: [
-      { key: "ue_vvs",         label: "VVS som UE",            defaultOn: true  },
-      { key: "ue_el",          label: "El som UE",             defaultOn: true  },
-      { key: "demo_kitchen",   label: "Rivning av gammalt kök",defaultOn: true  },
-      { key: "dishwasher",     label: "Ny diskmaskin",         defaultOn: false },
-      { key: "stove",          label: "Ny spis/häll",          defaultOn: false },
-      { key: "backsplash",     label: "Kakel/stänkskydd",      defaultOn: true  },
-      { key: "ventilation",    label: "Ny ventilation",        defaultOn: false },
-    ],
-  },
-  tak: {
-    pill: "AI beräknar takarea, läktning och material",
-    fields: [
-      { key: "roof_area",      label: "Takarea",              unit: "m²", defaultVal: "", hint: "Hela takytans area", type: "number" },
-      { key: "roof_pitch",     label: "Taklutning",           unit: "°",  defaultVal: "27", hint: "Grader — påverkar materialåtgång", type: "number" },
-      { key: "roof_type",      label: "Takets form",          unit: "",   defaultVal: "Sadeltak", hint: "Välj typ", type: "select",
-        options: ["Sadeltak", "Valmat tak", "Pulpettak", "Platt tak", "Mansardtak"] },
-      { key: "location",       label: "Plats",                unit: "",   defaultVal: "", hint: "Vindlast & materialpris", type: "text" },
-    ],
-    checks: [
-      { key: "demo_roof",      label: "Riva gamla takpannor", defaultOn: true  },
-      { key: "underlay",       label: "Ny undertäckning",     defaultOn: true  },
-      { key: "gutters",        label: "Ny ränndal",           defaultOn: false },
-      { key: "skylight",       label: "Takfönster",           defaultOn: false },
-      { key: "vent_hood",      label: "Ventilationshuv",      defaultOn: false },
-    ],
-  },
+
   fasad: {
-    pill: "AI beräknar fasadarea och materialåtgång",
+    pill: "AI beräknar fasadyta, panel och målning",
     fields: [
-      { key: "perimeter",      label: "Husomkrets",           unit: "m",  defaultVal: "", hint: "Totalt omfång i meter", type: "number" },
-      { key: "facade_height",  label: "Fasadhöjd",            unit: "m",  defaultVal: "", hint: "Mark till takfot", type: "number" },
-      { key: "windows",        label: "Antal fönster",        unit: "st", defaultVal: "", hint: "Dras av från fasadyta", type: "number" },
-      { key: "doors",          label: "Antal dörrar",         unit: "st", defaultVal: "", hint: "Dras av från fasadyta", type: "number" },
-      { key: "location",       label: "Plats",                unit: "",   defaultVal: "", hint: "Påverkar priser", type: "text" },
+      { key: "facade_area",  label: "Fasadyta",         unit: "m²", defaultVal: "", hint: "Total yta att klä eller måla", type: "number" },
+      { key: "perimeter",    label: "Husomkrets",       unit: "m",  defaultVal: "", hint: "Mät runt hela huset", type: "number" },
+      { key: "facade_height",label: "Fasadhöjd",        unit: "m",  defaultVal: "", hint: "Mark till takfot", type: "number" },
+      { key: "windows",      label: "Antal fönster",    unit: "st", defaultVal: "", hint: "Påverkar foderpost", type: "number" },
+      { key: "doors",        label: "Antal dörrar",     unit: "st", defaultVal: "", hint: "Påverkar foderpost", type: "number" },
+      { key: "location",     label: "Stad/region",      unit: "",   defaultVal: "", hint: "Stockholm/Göteborg/övriga", type: "text" },
     ],
     checks: [
-      { key: "demo_panel",     label: "Riva befintlig panel", defaultOn: false },
-      { key: "barge_board",    label: "Ny vindskiva",         defaultOn: true  },
-      { key: "window_flashing",label: "Ny fönsterbleck",      defaultOn: false },
-      { key: "painting",       label: "Målning ingår",        defaultOn: false },
+      { key: "demo_panel",      label: "Riv befintlig panel",        defaultOn: false },
+      { key: "wind_paper",      label: "Ny vindskyddspapp",          defaultOn: true  },
+      { key: "barge_board",     label: "Vindskivor + hängrännor",    defaultOn: true  },
+      { key: "window_flashing", label: "Fönsterbleck (UE plåt)",     defaultOn: false },
+      { key: "painting",        label: "Målning ingår",              defaultOn: true  },
+      { key: "ue_paint_spray",  label: "Sprutmålning som UE",        defaultOn: false },
+      { key: "scaffolding",     label: "Ställning ingår",            defaultOn: true  },
     ],
   },
-  golv: {
-    pill: "AI beräknar golvyta, underlag och material",
+
+  altan: {
+    pill: "AI beräknar plintar, bjälklag, trall och räcke",
     fields: [
-      { key: "floor_sqm",      label: "Golvyta",              unit: "m²", defaultVal: "", hint: "Total yta att lägga", type: "number" },
-      { key: "room_width",     label: "Rumsbredd (smalast)",  unit: "m",  defaultVal: "", hint: "Påverkar spill vid läggning", type: "number" },
-      { key: "floor_type",     label: "Golvtyp",              unit: "",   defaultVal: "Parkett", hint: "Material att lägga", type: "select",
-        options: ["Parkett", "Laminat", "Klinker", "Marmor", "Vinyl/LVT", "Mosaik"] },
-      { key: "location",       label: "Plats",                unit: "",   defaultVal: "", hint: "Påverkar priser", type: "text" },
+      { key: "altan_dimensions", label: "Altanmått (B×L)",  unit: "m",  defaultVal: "", hint: "T.ex. 4 x 5 — räknar yta automatiskt", type: "text" },
+      { key: "altan_height",     label: "Höjd över mark",    unit: "m",  defaultVal: "0.5", hint: "Påverkar plintlängd", type: "number" },
+      { key: "ground_type",      label: "Markförhållanden",  unit: "",   defaultVal: "Normal", hint: "Påverkar plintarbete", type: "select",
+        options: ["Fast mark/grus", "Lerjord (svår)", "Berg", "Befintlig platta"] },
+      { key: "railing",          label: "Räcke",             unit: "lpm", defaultVal: "", hint: "Längd räcke i löpmeter", type: "number" },
+      { key: "stairs",           label: "Trappa",            unit: "steg", defaultVal: "", hint: "Antal steg på trappan", type: "number" },
+      { key: "location",         label: "Stad/region",       unit: "",   defaultVal: "", hint: "Stockholm/Göteborg/övriga", type: "text" },
     ],
     checks: [
-      { key: "demo_floor",     label: "Riva befintligt golv", defaultOn: true  },
-      { key: "leveling",       label: "Avjämning krävs",      defaultOn: false },
-      { key: "floor_heating",  label: "Golvvärme under",      defaultOn: false },
-      { key: "skirting",       label: "Sockel/list ingår",    defaultOn: true  },
+      { key: "demo_old_altan", label: "Riv befintlig altan",      defaultOn: false },
+      { key: "screw_pile",     label: "Krinner skruvplintar",     defaultOn: true  },
+      { key: "concrete_pile",  label: "Betongplintar",            defaultOn: false },
+      { key: "pergola",        label: "Pergola/tak ingår",        defaultOn: false },
+      { key: "ue_lighting",    label: "Utebelysning (UE el)",     defaultOn: false },
+      { key: "oil_treatment",  label: "Oljebehandling efter",     defaultOn: false },
+      { key: "frost_mat",      label: "Frostskyddsmatta",         defaultOn: false },
     ],
   },
-  malning: {
-    pill: "AI beräknar färgåtgång och arbetstid exakt",
-    fields: [
-      { key: "wall_sqm",       label: "Väggyta att måla",     unit: "m²", defaultVal: "", hint: "Total väggarea", type: "number" },
-      { key: "ceiling_height", label: "Takhöjd",              unit: "m",  defaultVal: "2.4", hint: "Används för beräkning", type: "number" },
-      { key: "rooms",          label: "Antal rum",            unit: "st", defaultVal: "", hint: "Påverkar flytt & setup-tid", type: "number" },
-      { key: "location",       label: "Plats",                unit: "",   defaultVal: "", hint: "Påverkar priser", type: "text" },
-    ],
-    checks: [
-      { key: "ceiling",        label: "Tak ingår",            defaultOn: true  },
-      { key: "walls",          label: "Väggar ingår",         defaultOn: true  },
-      { key: "spackling",      label: "Spackla & slipa först",defaultOn: false },
-      { key: "trim",           label: "Fönster/dörrkarm",     defaultOn: false },
-      { key: "two_coats",      label: "2 strykningar",        defaultOn: true  },
-    ],
-  },
-  el: {
-    pill: "AI beräknar kabel, uttag och arbetstid",
-    fields: [
-      { key: "outlets",        label: "Antal uttag/brytare",  unit: "st", defaultVal: "", hint: "Nya eluttag att dra", type: "number" },
-      { key: "cable_meters",   label: "Kabelledning",         unit: "m",  defaultVal: "", hint: "Uppskattad kabelsträcka", type: "number" },
-      { key: "fixtures",       label: "Antal armaturer",      unit: "st", defaultVal: "", hint: "Takdosor & lamputtag", type: "number" },
-      { key: "location",       label: "Plats",                unit: "",   defaultVal: "", hint: "Påverkar priser", type: "text" },
-    ],
-    checks: [
-      { key: "fusebox",        label: "Elcentral/proppskåp",  defaultOn: false },
-      { key: "rcd",            label: "Jordfelsbrytare",      defaultOn: true  },
-      { key: "thermostat",     label: "Golvvärme-termostat",  defaultOn: false },
-      { key: "inspection",     label: "Elbesiktning ingår",   defaultOn: false },
-    ],
-  },
-  vvs: {
-    pill: "AI beräknar rör, kopplingar och arbetstid",
-    fields: [
-      { key: "taps",           label: "Antal blandare",       unit: "st", defaultVal: "", hint: "Kök, bad, tvätt...", type: "number" },
-      { key: "pipe_meters",    label: "Ny rörledning",        unit: "m",  defaultVal: "", hint: "Meter ny rördragning", type: "number" },
-      { key: "drains",         label: "Antal avlopp",         unit: "st", defaultVal: "", hint: "Golvbrunnar & anslutningar", type: "number" },
-      { key: "location",       label: "Plats",                unit: "",   defaultVal: "", hint: "Påverkar priser", type: "text" },
-    ],
-    checks: [
-      { key: "water_heater",   label: "Ny varmvattenberedare",defaultOn: false },
-      { key: "radiator",       label: "Ny radiator",          defaultOn: false },
-      { key: "laundry",        label: "Ny tvättpunkt",        defaultOn: true  },
-      { key: "backflow",       label: "Backventil",           defaultOn: false },
-    ],
-  },
-  tillbyggnad: {
-    pill: "AI beräknar stomme, isolering och ytskikt",
-    fields: [
-      { key: "room_dimensions",label: "Mått (B×L)",           unit: "m",  defaultVal: "", hint: "T.ex. 4 x 5 — räknar area automatiskt", type: "text" },
-      { key: "addition_sqm",   label: "Eller area direkt",    unit: "m²", defaultVal: "", hint: "Fyll bara om du saknar mått", type: "number" },
-      { key: "ceiling_height", label: "Takhöjd",              unit: "m",  defaultVal: "2.4", hint: "Invändig takhöjd", type: "number" },
-      { key: "windows",        label: "Antal fönster",        unit: "st", defaultVal: "", hint: "Nya fönster i tillbyggnad", type: "number" },
-      { key: "location",       label: "Plats",                unit: "",   defaultVal: "", hint: "Påverkar priser", type: "text" },
-    ],
-    checks: [
-      { key: "ue_vvs",         label: "VVS som UE",           defaultOn: true  },
-      { key: "ue_el",          label: "El som UE",            defaultOn: true  },
-      { key: "slab",           label: "Platta på mark",       defaultOn: true  },
-      { key: "crawl_space",    label: "Krypgrund",            defaultOn: false },
-      { key: "heating",        label: "Radiatorer/golvvärme", defaultOn: true  },
-      { key: "electricity",    label: "El i tillbyggnad",     defaultOn: true  },
-    ],
-  },
+
   ovrigt: {
     pill: "Fyll i det som är relevant för ditt jobb",
     fields: [
-      { key: "area_sqm",       label: "Yta / area",           unit: "m²", defaultVal: "", hint: "Om relevant för jobbet", type: "number" },
-      { key: "units",          label: "Antal enheter",        unit: "st", defaultVal: "", hint: "T.ex. antal objekt, rum...", type: "number" },
-      { key: "location",       label: "Plats",                unit: "",   defaultVal: "", hint: "Påverkar priser & ROT", type: "text" },
+      { key: "area_sqm", label: "Yta / area",     unit: "m²", defaultVal: "", hint: "Om relevant", type: "number" },
+      { key: "units",    label: "Antal enheter",  unit: "st", defaultVal: "", hint: "T.ex. antal objekt/rum", type: "number" },
+      { key: "location", label: "Stad/region",    unit: "",   defaultVal: "", hint: "Stockholm/Göteborg/övriga", type: "text" },
     ],
     checks: [
-      { key: "demo",           label: "Rivning/demontering",  defaultOn: false },
-      { key: "cleaning",       label: "Städning efter jobb",  defaultOn: false },
+      { key: "demo",         label: "Rivning/demontering",   defaultOn: false },
+      { key: "container_inc",label: "Container ingår",       defaultOn: false },
+      { key: "cleaning",     label: "Städning efter jobb",   defaultOn: true  },
     ],
   },
 };
@@ -535,7 +440,7 @@ function EstimateInner() {
   const [step, setStep] = useState<"input" | "loading" | "result">("input");
 
   // Jobbtyp
-  const [jobType, setJobType] = useState("badrum");
+  const [jobType, setJobType] = useState("rivning");
 
   // Dynamiska fältvärden: { [key]: value }
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
@@ -545,11 +450,19 @@ function EstimateInner() {
   // Fritext-beskrivning
   const [description, setDescription] = useState("");
 
+  // Adress + reslogistik
+  const [address, setAddress]         = useState("");
+  const [distanceKm, setDistanceKm]   = useState("");
+  const [workDays, setWorkDays]       = useState("");
+
+  // Kvalitetsnivå
+  const [quality, setQuality] = useState<"standard" | "premium">("standard");
+
   // Kalkylparametrar
-  const [hourlyRate, setHourlyRate] = useState("650");
-  const [marginPct, setMarginPct] = useState("15");
+  const [hourlyRate, setHourlyRate]   = useState("650");
+  const [marginPct, setMarginPct]     = useState("15");
   const [ueMarkupPct, setUeMarkupPct] = useState("12.5");
-  const [includeRot, setIncludeRot] = useState(true);
+  const [includeRot, setIncludeRot]   = useState(true);
 
   // Resultat
   const [result, setResult] = useState<any>(null);
@@ -768,13 +681,17 @@ function EstimateInner() {
         description: description.trim(),
         job_type: jobType,
         location: location || undefined,
+        address: address.trim() || undefined,
+        distance_km: distanceKm ? parseFloat(distanceKm) : undefined,
+        work_days:   workDays   ? parseInt(workDays)     : undefined,
+        quality,
         hourly_rate: parseFloat(hourlyRate) || 650,
-        margin_pct: parseFloat(marginPct) || 15,
+        margin_pct:  parseFloat(marginPct)  || 15,
         ue_markup_pct: parseFloat(ueMarkupPct) || 12.5,
         include_rot: includeRot,
         build_params: buildParams,
-        images: [...imagePayload, ...drawingImages],
-        documents: [...pdfPayload, ...drawingPdfs],
+        images:    [...imagePayload, ...drawingImages],
+        documents: [...pdfPayload,   ...drawingPdfs],
       });
       clearInterval(interval);
       setResult(data);
@@ -1146,13 +1063,96 @@ function EstimateInner() {
           )}
         </div>
 
+        {/* Arbetsplats & logistik */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "1.2px", color: "var(--text-faint)", textTransform: "uppercase" }}>Arbetsplats & logistik</div>
+          <div style={{ flex: 1, height: "0.5px", background: "var(--border)" }} />
+        </div>
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 10, marginBottom: 12 }}>
+            <div>
+              <label className="label">Adress till arbetsplats</label>
+              <input
+                className="input"
+                type="text"
+                placeholder="t.ex. Smedjevägen 1, 191 35 Sollentuna"
+                value={address}
+                onChange={e => setAddress(e.target.value)}
+              />
+              <div style={{ fontSize: 10, color: "var(--text-faint)", marginTop: 4 }}>
+                Innanför Stockholms tullar → trängselskatt 135 kr/dag
+              </div>
+            </div>
+            <div>
+              <label className="label">Avstånd t/r enkel väg</label>
+              <div style={{ display: "flex", alignItems: "center", background: "var(--bg-elevated)", border: "0.5px solid var(--border)", borderRadius: "var(--radius)", padding: "6px 10px" }}>
+                <input
+                  type="number"
+                  placeholder="0"
+                  value={distanceKm}
+                  onChange={e => setDistanceKm(e.target.value)}
+                  style={{ background: "none", border: "none", outline: "none", fontSize: 13, color: "var(--text-primary)", width: "100%" }}
+                />
+                <span style={{ fontSize: 11, color: "var(--text-faint)", marginLeft: 4 }}>km</span>
+              </div>
+              <div style={{ fontSize: 10, color: "var(--text-faint)", marginTop: 4 }}>
+                25 kr/km × 2 × resedagar
+              </div>
+            </div>
+            <div>
+              <label className="label">Antal arbetsdagar</label>
+              <div style={{ display: "flex", alignItems: "center", background: "var(--bg-elevated)", border: "0.5px solid var(--border)", borderRadius: "var(--radius)", padding: "6px 10px" }}>
+                <input
+                  type="number"
+                  placeholder="auto"
+                  value={workDays}
+                  onChange={e => setWorkDays(e.target.value)}
+                  style={{ background: "none", border: "none", outline: "none", fontSize: 13, color: "var(--text-primary)", width: "100%" }}
+                />
+                <span style={{ fontSize: 11, color: "var(--text-faint)", marginLeft: 4 }}>dagar</span>
+              </div>
+              <div style={{ fontSize: 10, color: "var(--text-faint)", marginTop: 4 }}>
+                Lämna tom → AI uppskattar
+              </div>
+            </div>
+          </div>
+
+          {/* Kvalitetsnivå */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, paddingTop: 8, borderTop: "0.5px solid var(--border)" }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-faint)", letterSpacing: "0.5px", textTransform: "uppercase" }}>
+              Kvalitetsnivå material
+            </div>
+            <div style={{ display: "flex", gap: 6 }}>
+              {(["standard", "premium"] as const).map(q => (
+                <button
+                  key={q}
+                  onClick={() => setQuality(q)}
+                  style={{
+                    background: quality === q ? "rgba(106,129,147,0.15)" : "var(--bg-surface)",
+                    border: `0.5px solid ${quality === q ? "rgba(106,129,147,0.5)" : "var(--border)"}`,
+                    borderRadius: "var(--radius)",
+                    padding: "5px 14px",
+                    fontSize: 12,
+                    fontWeight: quality === q ? 600 : 400,
+                    color: quality === q ? "#8aaabb" : "var(--text-muted)",
+                    cursor: "pointer",
+                    textTransform: "capitalize",
+                  }}
+                >
+                  {q === "standard" ? "Standard (furu/standardmaterial)" : "Premium (lärk/komposit/premium)"}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
         {/* Kalkylparametrar */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
           <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "1.2px", color: "var(--text-faint)", textTransform: "uppercase" }}>Kalkylparametrar</div>
           <div style={{ flex: 1, height: "0.5px", background: "var(--border)" }} />
         </div>
         <div className="card" style={{ marginBottom: 20 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10 }}>
             <div>
               <label className="label">Timpris (kr/h)</label>
               <input className="input" type="number" value={hourlyRate} onChange={e => setHourlyRate(e.target.value)} />
@@ -1160,6 +1160,10 @@ function EstimateInner() {
             <div>
               <label className="label">Påslag (%)</label>
               <input className="input" type="number" value={marginPct} onChange={e => setMarginPct(e.target.value)} />
+            </div>
+            <div>
+              <label className="label">UE-påslag (%)</label>
+              <input className="input" type="number" step="0.5" value={ueMarkupPct} onChange={e => setUeMarkupPct(e.target.value)} />
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 20 }}>
               <div
@@ -1362,17 +1366,19 @@ function EstimateInner() {
         <div className="est-total-row"><span className="label-text">Material</span><span className="value">{fmtKr(t.material_total || 0)}</span></div>
         <div className="est-total-row"><span className="label-text">Arbete (eget)</span><span className="value">{fmtKr(t.labor_total || 0)}</span></div>
         {(t.subcontractor_total || 0) > 0 && <div className="est-total-row"><span className="label-text">Underentreprenörer</span><span className="value">{fmtKr(t.subcontractor_total)}</span></div>}
-        {(t.equipment_total || 0) > 0 && <div className="est-total-row"><span className="label-text">Utrustning</span><span className="value">{fmtKr(t.equipment_total)}</span></div>}
+        {(t.equipment_total    || 0) > 0 && <div className="est-total-row"><span className="label-text">Hyrutrustning</span><span className="value">{fmtKr(t.equipment_total)}</span></div>}
+        {(t.disposal_total     || 0) > 0 && <div className="est-total-row"><span className="label-text">Sophantering & deponi</span><span className="value">{fmtKr(t.disposal_total)}</span></div>}
+        {(t.overhead_total     || 0) > 0 && <div className="est-total-row"><span className="label-text">Etablering, frakt & resor</span><span className="value">{fmtKr(t.overhead_total)}</span></div>}
         <div className="est-total-row"><span className="label-text">Delsumma</span><span className="value">{fmtKr(t.subtotal || 0)}</span></div>
         {(t.own_margin || 0) > 0 && <div className="est-total-row"><span className="label-text">Påslag eget arbete & material ({result.meta?.margin_pct || 15}%)</span><span className="value">{fmtKr(t.own_margin)}</span></div>}
-        {(t.ue_markup || 0) > 0 && <div className="est-total-row"><span className="label-text">Påslag UE ({result.meta?.ue_markup_pct || 12.5}%)</span><span className="value">{fmtKr(t.ue_markup)}</span></div>}
+        {(t.ue_markup  || 0) > 0 && <div className="est-total-row"><span className="label-text">Påslag UE ({result.meta?.ue_markup_pct || 12.5}%)</span><span className="value">{fmtKr(t.ue_markup)}</span></div>}
         <div className="est-total-row"><span className="label-text">Summa exkl. moms</span><span className="value">{fmtKr(t.total_ex_vat || 0)}</span></div>
         <div className="est-total-row"><span className="label-text">Moms (25%)</span><span className="value">{fmtKr(t.vat || 0)}</span></div>
         <div className="est-total-row big"><span>Totalt inkl. moms</span><span className="value">{fmtKr(t.total_inc_vat || 0)}</span></div>
         {(t.rot_deduction || 0) > 0 && (
           <>
             <div className="est-total-row" style={{ marginTop: 12 }}>
-              <span className="label-text">ROT-avdrag (30% på arbete)</span>
+              <span className="label-text">ROT-avdrag (30% på arbete inkl. UE-arbete)</span>
               <span className="est-rot">−{fmtKr(t.rot_deduction)}</span>
             </div>
             <div className="est-total-row big">
@@ -1382,6 +1388,29 @@ function EstimateInner() {
           </>
         )}
       </div>
+
+      {/* Pricing snapshot — visa hur många rader som kom från databasen vs gissades */}
+      {result.pricing_snapshot && (
+        <div style={{ marginTop: 12, padding: "10px 14px", background: "var(--bg-elevated)", border: "0.5px solid var(--border)", borderRadius: "var(--radius)", fontSize: 12, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{
+            width: 8, height: 8, borderRadius: "50%",
+            background: result.pricing_snapshot.match_pct >= 80 ? "#16a34a"
+                      : result.pricing_snapshot.match_pct >= 50 ? "#f59e0b" : "#ef4444",
+          }} />
+          <div style={{ flex: 1 }}>
+            <strong>Datakvalitet:</strong> {result.pricing_snapshot.match_pct}% av raderna kommer från prislådan
+            ({result.pricing_snapshot.matched_count} matchade, {result.pricing_snapshot.estimated_count} uppskattade).
+          </div>
+          {result.pricing_snapshot.estimated_count > 0 && (
+            <button
+              onClick={() => setShowSources(true)}
+              style={{ background: "none", border: "0.5px solid var(--border)", borderRadius: 4, padding: "3px 10px", fontSize: 11, color: "var(--text-muted)", cursor: "pointer" }}
+            >
+              Visa uppskattningar
+            </button>
+          )}
+        </div>
+      )}
 
       {result.estimated_days && <div className="info-box" style={{ marginTop: 16 }}>Uppskattad tidsåtgång: ca {result.estimated_days} arbetsdagar</div>}
       {result.warnings?.length > 0 && (
