@@ -14,7 +14,6 @@ function fmtKr(n: number): string {
 type Tab = "draft" | "sent" | "accepted";
 
 // ── Outcome-knappar ───────────────────────────────────────────────────────────
-// Visas på varje skickad offert — snickaren klickar Vann eller Förlorade
 function OutcomeButtons({
   quote,
   onUpdated,
@@ -22,26 +21,57 @@ function OutcomeButtons({
   quote: QuoteRecord;
   onUpdated: (id: string, outcome: "won" | "lost", lostReason?: string) => void;
 }) {
-  const [saving, setSaving]           = useState(false);
+  const [saving, setSaving]               = useState(false);
   const [showLostInput, setShowLostInput] = useState(false);
-  const [lostReason, setLostReason]   = useState(quote.lost_reason || "");
+  const [showPriceInput, setShowPriceInput] = useState(false);
+  const [lostReason, setLostReason]       = useState(quote.lost_reason || "");
+  const [actualPrice, setActualPrice]     = useState("");
   const current = quote.outcome;
 
+  const diffPct = actualPrice
+    ? Math.round(Math.abs(parseFloat(actualPrice) - quote.total_inc_vat) / quote.total_inc_vat * 100)
+    : null;
+
   async function handleWon() {
+    if (!showPriceInput) {
+      setShowLostInput(false);
+      setShowPriceInput(true);
+      return;
+    }
     setSaving(true);
-    setShowLostInput(false);
     const { success } = await updateOutcome(quote.id, "won");
-    if (success) onUpdated(quote.id, "won");
+    if (success) {
+      if (actualPrice.trim()) {
+        try {
+          const { data } = await (await import("@/lib/supabase")).supabase.auth.getSession();
+          const token = data.session?.access_token || "";
+          const API = process.env.NEXT_PUBLIC_API_BASE?.trim() || "";
+          await fetch(`${API}/api/quotes/${quote.id}/outcome`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              quote_id: quote.id,
+              outcome: "won",
+              actual_final_price: parseFloat(actualPrice),
+            }),
+          });
+        } catch {}
+      }
+      onUpdated(quote.id, "won");
+    }
+    setShowPriceInput(false);
     setSaving(false);
   }
 
   async function handleLost() {
-    // Visa input för orsak om vi inte redan visar den
     if (!showLostInput) {
+      setShowPriceInput(false);
       setShowLostInput(true);
       return;
     }
-    // Spara med orsak
     setSaving(true);
     const { success } = await updateOutcome(quote.id, "lost", lostReason.trim() || undefined);
     if (success) onUpdated(quote.id, "lost", lostReason.trim() || undefined);
@@ -55,37 +85,20 @@ function OutcomeButtons({
       style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}
     >
       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-
         {/* Vann-knapp */}
         <button
           onClick={handleWon}
           disabled={saving}
           style={{
-            padding: "4px 12px",
-            borderRadius: 20,
-            fontSize: 11,
-            fontWeight: 600,
-            cursor: saving ? "default" : "pointer",
-            border: "0.5px solid",
-            borderColor:  current === "won" ? "rgba(34,197,94,0.6)"  : "var(--border-strong)",
-            background:   current === "won" ? "rgba(34,197,94,0.15)" : "transparent",
-            color:        current === "won" ? "#22c55e" : "var(--text-faint)",
+            padding: "4px 12px", borderRadius: 20, fontSize: 11, fontWeight: 600,
+            cursor: saving ? "default" : "pointer", border: "0.5px solid",
+            borderColor:  current === "won" ? "rgba(34,197,94,0.6)"  : showPriceInput ? "rgba(34,197,94,0.5)" : "var(--border-strong)",
+            background:   current === "won" ? "rgba(34,197,94,0.15)" : showPriceInput ? "rgba(34,197,94,0.08)" : "transparent",
+            color:        current === "won" || showPriceInput ? "#22c55e" : "var(--text-faint)",
             transition:   "all 0.1s",
           }}
-          onMouseEnter={e => {
-            if (current !== "won") {
-              (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(34,197,94,0.5)";
-              (e.currentTarget as HTMLButtonElement).style.color = "#22c55e";
-            }
-          }}
-          onMouseLeave={e => {
-            if (current !== "won") {
-              (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--border-strong)";
-              (e.currentTarget as HTMLButtonElement).style.color = "var(--text-faint)";
-            }
-          }}
         >
-          {current === "won" ? "✓ Vann" : "Vann"}
+          {current === "won" ? "✓ Vann" : showPriceInput ? "Spara →" : "Vann"}
         </button>
 
         {/* Förlorade-knapp */}
@@ -93,39 +106,60 @@ function OutcomeButtons({
           onClick={handleLost}
           disabled={saving}
           style={{
-            padding: "4px 12px",
-            borderRadius: 20,
-            fontSize: 11,
-            fontWeight: 600,
-            cursor: saving ? "default" : "pointer",
-            border: "0.5px solid",
+            padding: "4px 12px", borderRadius: 20, fontSize: 11, fontWeight: 600,
+            cursor: saving ? "default" : "pointer", border: "0.5px solid",
             borderColor:  current === "lost" ? "rgba(239,68,68,0.6)"  : showLostInput ? "rgba(239,68,68,0.5)" : "var(--border-strong)",
             background:   current === "lost" ? "rgba(239,68,68,0.12)" : showLostInput ? "rgba(239,68,68,0.08)" : "transparent",
             color:        current === "lost" || showLostInput ? "#f87171" : "var(--text-faint)",
             transition:   "all 0.1s",
           }}
-          onMouseEnter={e => {
-            if (current !== "lost" && !showLostInput) {
-              (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(239,68,68,0.5)";
-              (e.currentTarget as HTMLButtonElement).style.color = "#f87171";
-            }
-          }}
-          onMouseLeave={e => {
-            if (current !== "lost" && !showLostInput) {
-              (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--border-strong)";
-              (e.currentTarget as HTMLButtonElement).style.color = "var(--text-faint)";
-            }
-          }}
         >
-          {current === "lost"
-            ? "✗ Förlorade"
-            : showLostInput
-            ? "Spara orsak →"
-            : "Förlorade"}
+          {current === "lost" ? "✗ Förlorade" : showLostInput ? "Spara orsak →" : "Förlorade"}
         </button>
       </div>
 
-      {/* Fritext för förlorandeorsak — visas när snickaren klickar Förlorade */}
+      {/* Prisinput — visas när snickaren klickar Vann */}
+      {showPriceInput && current !== "won" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 4, width: "100%" }}>
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <input
+              className="input"
+              autoFocus
+              type="number"
+              value={actualPrice}
+              onChange={e => setActualPrice(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Enter") handleWon();
+                if (e.key === "Escape") setShowPriceInput(false);
+              }}
+              placeholder={`Faktiskt slutpris (AI: ${Math.round(quote.total_inc_vat).toLocaleString("sv-SE")} kr)`}
+              style={{ fontSize: 12, padding: "5px 10px", flex: 1 }}
+            />
+            <span style={{ fontSize: 11, color: "var(--text-faint)" }}>kr</span>
+            <button
+              onClick={() => setShowPriceInput(false)}
+              style={{ background: "none", border: "none", color: "var(--text-faint)", cursor: "pointer", fontSize: 16, padding: "0 4px" }}
+            >✕</button>
+          </div>
+          {diffPct !== null && actualPrice && (
+            <div style={{
+              fontSize: 11, padding: "4px 8px", borderRadius: "var(--radius)",
+              background: diffPct <= 5 ? "rgba(34,197,94,0.08)" : diffPct <= 15 ? "rgba(234,179,8,0.08)" : "rgba(239,68,68,0.08)",
+              color: diffPct <= 5 ? "#22c55e" : diffPct <= 15 ? "#a16207" : "#f87171",
+              textAlign: "right",
+            }}>
+              {diffPct <= 5
+                ? `Träffsäkerhet: ${100 - diffPct}% — utmärkt`
+                : `Avvikelse: ${diffPct}% — AI:n lär sig`}
+            </div>
+          )}
+          <div style={{ fontSize: 10, color: "var(--text-faint)", textAlign: "right" }}>
+            Tryck Enter för att spara · Esc för att avbryta
+          </div>
+        </div>
+      )}
+
+      {/* Fritext för förlorandeorsak */}
       {showLostInput && (
         <div style={{ display: "flex", gap: 6, alignItems: "center", width: "100%" }}>
           <input
@@ -143,9 +177,7 @@ function OutcomeButtons({
           <button
             onClick={() => setShowLostInput(false)}
             style={{ background: "none", border: "none", color: "var(--text-faint)", cursor: "pointer", fontSize: 16, padding: "0 4px" }}
-          >
-            ✕
-          </button>
+          >✕</button>
         </div>
       )}
 
@@ -240,12 +272,12 @@ function QuoteViewModal({ quote, onClose }: { quote: QuoteRecord; onClose: () =>
 
           <div style={{ maxWidth: 320, marginLeft: "auto", fontSize: 13 }}>
             {[
-              { label: "Material",                         val: t.material_total },
-              { label: "Arbete",                           val: t.labor_total },
-              { label: "Utrustning",                       val: t.equipment_total },
-              { label: `Påslag (${result.meta?.margin_pct || 15}%)`, val: t.margin_amount },
-              { label: "Summa exkl. moms",                 val: t.total_ex_vat },
-              { label: "Moms (25%)",                       val: t.vat },
+              { label: "Material",                                      val: t.material_total },
+              { label: "Arbete",                                        val: t.labor_total },
+              { label: "Utrustning",                                    val: t.equipment_total },
+              { label: `Påslag (${result.meta?.margin_pct || 15}%)`,   val: t.margin_amount },
+              { label: "Summa exkl. moms",                              val: t.total_ex_vat },
+              { label: "Moms (25%)",                                    val: t.vat },
             ].filter(r => r.val).map(r => (
               <div key={r.label} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", color: "var(--text-muted)" }}>
                 <span>{r.label}</span>
@@ -270,9 +302,34 @@ function QuoteViewModal({ quote, onClose }: { quote: QuoteRecord; onClose: () =>
             )}
           </div>
 
+          {/* Visa faktiskt slutpris om det finns */}
+          {(quote as any).actual_final_price && (
+            <div style={{ marginTop: 16, padding: "12px 16px", background: "rgba(106,129,147,0.06)", border: "0.5px solid var(--border)", borderRadius: "var(--radius)", fontSize: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", color: "var(--text-muted)" }}>
+                <span>Faktiskt slutpris</span>
+                <span style={{ fontFamily: "var(--mono)", fontWeight: 600, color: "var(--text-primary)" }}>
+                  {fmtKr((quote as any).actual_final_price)}
+                </span>
+              </div>
+              {(quote as any).price_accuracy_pct && (
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+                  <span style={{ color: "var(--text-faint)" }}>AI:ns träffsäkerhet</span>
+                  <span style={{
+                    fontWeight: 600,
+                    color: (quote as any).price_accuracy_pct >= 95 ? "#22c55e"
+                          : (quote as any).price_accuracy_pct >= 85 ? "#a16207"
+                          : "#f87171",
+                  }}>
+                    {(quote as any).price_accuracy_pct}%
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
           {quote.status === "accepted" && quote.accepted_at && (
             <div style={{ marginTop: 20, padding: "12px 16px", background: "rgba(34,197,94,0.08)", border: "0.5px solid rgba(34,197,94,0.3)", borderRadius: "var(--radius)", fontSize: 12, color: "#22c55e" }}>
-              ✅ Godkänd av kund den {fmtDate(quote.accepted_at)}
+              Godkänd av kund den {new Date(quote.accepted_at).toLocaleDateString("sv-SE")}
             </div>
           )}
         </div>
@@ -287,7 +344,6 @@ function QuoteViewModal({ quote, onClose }: { quote: QuoteRecord; onClose: () =>
 
 // ── Statusbadge ───────────────────────────────────────────────────────────────
 function statusBadge(status: string, outcome?: string | null) {
-  // Outcome åsidosätter status-badge för skickade offerter
   if (outcome === "won") {
     return (
       <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: "rgba(34,197,94,0.15)", color: "#22c55e" }}>
@@ -302,7 +358,6 @@ function statusBadge(status: string, outcome?: string | null) {
       </span>
     );
   }
-
   const styles: Record<string, { bg: string; color: string; label: string }> = {
     draft:    { bg: "rgba(148,163,184,0.15)", color: "#94a3b8", label: "Utkast" },
     sent:     { bg: "rgba(59,130,246,0.15)",  color: "#60a5fa", label: "Skickad" },
@@ -337,7 +392,6 @@ export default function EstimatesPage() {
     });
   }, []);
 
-  // Uppdatera outcome lokalt utan att ladda om hela listan
   function handleOutcomeUpdated(id: string, outcome: "won" | "lost", lostReason?: string) {
     setSentQuotes(prev =>
       prev.map(q =>
@@ -495,7 +549,6 @@ export default function EstimatesPage() {
                 alignItems: "flex-start",
                 paddingTop: 14,
                 paddingBottom: 14,
-                // Grön/röd vänsterkant baserat på outcome
                 borderLeft: q.outcome === "won"
                   ? "3px solid rgba(34,197,94,0.5)"
                   : q.outcome === "lost"
@@ -504,12 +557,10 @@ export default function EstimatesPage() {
               }}
               onClick={() => setViewingQuote(q)}
             >
-              {/* Ikon */}
               <div className="est-list-icon" style={{ marginTop: 2 }}>
                 {q.outcome === "won" ? "🏆" : q.outcome === "lost" ? "❌" : "📤"}
               </div>
 
-              {/* Info */}
               <div className="est-list-info" style={{ flex: 1, minWidth: 0 }}>
                 <div className="est-list-title">{q.title}</div>
                 <div className="est-list-meta">
@@ -517,9 +568,14 @@ export default function EstimatesPage() {
                   {q.customer_name && ` · ${q.customer_name}`}
                   {q.customer_email && ` · ${q.customer_email}`}
                 </div>
+                {/* Visa träffsäkerhet om faktiskt pris finns */}
+                {(q as any).price_accuracy_pct && (
+                  <div style={{ fontSize: 11, marginTop: 3, color: (q as any).price_accuracy_pct >= 95 ? "#22c55e" : (q as any).price_accuracy_pct >= 85 ? "#a16207" : "#f87171" }}>
+                    AI-träffsäkerhet: {(q as any).price_accuracy_pct}%
+                  </div>
+                )}
               </div>
 
-              {/* Höger: belopp + outcome-knappar */}
               <div
                 style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, flexShrink: 0 }}
                 onClick={e => e.stopPropagation()}
