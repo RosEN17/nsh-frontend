@@ -607,7 +607,7 @@ function EstimateInner() {
     }
 
     return out;
- 
+  }    
   const loadingMessages = [
     "Analyserar jobbeskrivningen...",
     "Beräknar materialåtgång...",
