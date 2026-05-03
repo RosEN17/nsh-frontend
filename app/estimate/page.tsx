@@ -50,6 +50,7 @@ const JOB_PARAMS: Record<string, JobParams> = {
       { key: "demolition_volume", label: "Uppskattad volym",     unit: "kbm", defaultVal: "", hint: "Hur mycket material i rivningen", type: "number" },
       { key: "floor_sqm",         label: "Yta som påverkas",     unit: "m²", defaultVal: "", hint: "Total yta för rivningen", type: "number" },
       { key: "build_year",        label: "Byggår",                unit: "",  defaultVal: "", hint: "Pre-1975 = asbestrisk", type: "number" },
+      { key: "floor_number",      label: "Våningsplan",           unit: "tr", defaultVal: "", hint: "Vilket plan är lägenheten på", type: "number" },
       { key: "location",          label: "Stad/region",          unit: "",   defaultVal: "", hint: "Stockholm/Göteborg/övriga", type: "text" },
     ],
     checks: [
@@ -58,6 +59,7 @@ const JOB_PARAMS: Record<string, JobParams> = {
       { key: "demo_ceiling",    label: "Riv tak",                        defaultOn: false },
       { key: "demo_kitchen",    label: "Riv köksinredning",              defaultOn: false },
       { key: "demo_bathroom",   label: "Riv badrumsinredning",           defaultOn: false },
+      { key: "no_elevator", label: "Utan hiss", defaultOn: false },
       { key: "container_inc",   label: "Container ingår",                defaultOn: true  },
       { key: "transport_inc",   label: "Bortforsling ingår",             defaultOn: true  },
       { key: "asbest_risk",     label: "Misstänkt asbest (sanering UE)", defaultOn: false },
@@ -68,6 +70,8 @@ const JOB_PARAMS: Record<string, JobParams> = {
   fasad: {
     pill: "AI beräknar fasadyta, panel och målning",
     fields: [
+      { key: "facade_type", label: "Fasadtyp", unit: "", defaultVal: "Stående panel", hint: "Avgör material och monteringsnorm", type: "select",
+        options: ["Stående panel", "Liggande panel", "Puts", "Tegel", "Fibercementskivor"] },
       { key: "facade_area",  label: "Fasadyta",         unit: "m²", defaultVal: "", hint: "Total yta att klä eller måla", type: "number" },
       { key: "perimeter",    label: "Husomkrets",       unit: "m",  defaultVal: "", hint: "Mät runt hela huset", type: "number" },
       { key: "facade_height",label: "Fasadhöjd",        unit: "m",  defaultVal: "", hint: "Mark till takfot", type: "number" },
@@ -93,7 +97,9 @@ const JOB_PARAMS: Record<string, JobParams> = {
       { key: "altan_height",     label: "Höjd över mark",    unit: "m",  defaultVal: "0.5", hint: "Påverkar plintlängd", type: "number" },
       { key: "ground_type",      label: "Markförhållanden",  unit: "",   defaultVal: "Normal", hint: "Påverkar plintarbete", type: "select",
         options: ["Fast mark/grus", "Lerjord (svår)", "Berg", "Befintlig platta"] },
-      { key: "railing",          label: "Räcke",             unit: "lpm", defaultVal: "", hint: "Längd räcke i löpmeter", type: "number" },
+      { key: "railing_sides", label: "Räcke på sidor", unit: "sidor", defaultVal: "", hint: "Antal sidor med räcke (1–4)", type: "select",
+        options: ["Ingen", "1 sida", "2 sidor", "3 sidor", "4 sidor (runt om)"] },
+      { key: "railing", label: "Räcke (lpm)", unit: "lpm", defaultVal: "", hint: "Eller ange exakt längd i löpmeter", type: "number" },
       { key: "stairs",           label: "Trappa",            unit: "steg", defaultVal: "", hint: "Antal steg på trappan", type: "number" },
       { key: "location",         label: "Stad/region",       unit: "",   defaultVal: "", hint: "Stockholm/Göteborg/övriga", type: "text" },
     ],
@@ -563,10 +569,45 @@ function EstimateInner() {
     if (tilePricePerSqm && parseFloat(tilePricePerSqm) > 0) {
       out["tile_price_per_sqm"] = `${tilePricePerSqm} kr/kvm inkl. moms`;
     }
+// Kakel pris per kvm om angivet
+    if (tilePricePerSqm && parseFloat(tilePricePerSqm) > 0) {
+      out["tile_price_per_sqm"] = `${tilePricePerSqm} kr/kvm inkl. moms`;
+    }
+
+    // Rivning: bygg ground_type från våningsplan och hiss
+    if (jobType === "rivning") {
+      const floor = fieldValues["floor_number"];
+      const noElevator = checkValues["no_elevator"];
+      if (floor && parseInt(floor) > 0) {
+        out["floor_number"] = `${floor} tr`;
+      }
+      if (noElevator) {
+        out["ground_type"] = "utan hiss";
+      }
+    }
+
+    // Altan: beräkna räckeslängd från sidor om lpm ej angivet
+    if (jobType === "altan" && fieldValues["railing_sides"] && !fieldValues["railing"]) {
+      const dims = fieldValues["altan_dimensions"] || "";
+      const match = dims.match(/(\d+[\.,]?\d*)\s*[x×]\s*(\d+[\.,]?\d*)/i);
+      if (match) {
+        const b = parseFloat(match[1].replace(",", "."));
+        const l = parseFloat(match[2].replace(",", "."));
+        const sidesMap: Record<string, number> = {
+          "1 sida": Math.max(b, l),
+          "2 sidor": b + l,
+          "3 sidor": 2 * Math.min(b, l) + Math.max(b, l),
+          "4 sidor (runt om)": 2 * b + 2 * l,
+        };
+        const sides = fieldValues["railing_sides"];
+        if (sidesMap[sides]) {
+          out["railing"] = `${Math.round(sidesMap[sides])} lpm`;
+        }
+      }
+    }
 
     return out;
-  }
-
+ 
   const loadingMessages = [
     "Analyserar jobbeskrivningen...",
     "Beräknar materialåtgång...",
