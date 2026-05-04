@@ -43,35 +43,19 @@ interface JobParams {
 // ── Smarta parametrar per jobbtyp ────────────────────────────────────────────
 const JOB_PARAMS: Record<string, JobParams> = {
   rivning: {
-    pill: "AI beräknar rivningsvolym, container och deponi",
-    fields: [
-      { key: "rivning_scope",     label: "Vad ska rivas",        unit: "",   defaultVal: "Badrum komplett", hint: "Välj typ av rivning", type: "select",
-        options: ["Badrum komplett", "Kök komplett", "Innervägg", "Innertak", "Yttertak", "Fasad", "Hela inredning", "Annat"] },
-      { key: "demolition_volume", label: "Uppskattad volym",     unit: "kbm", defaultVal: "", hint: "Hur mycket material i rivningen", type: "number" },
-      { key: "floor_sqm",         label: "Yta som påverkas",     unit: "m²", defaultVal: "", hint: "Total yta för rivningen", type: "number" },
-      { key: "build_year",        label: "Byggår",                unit: "",  defaultVal: "", hint: "Pre-1975 = asbestrisk", type: "number" },
-      { key: "floor_number",      label: "Våningsplan",           unit: "tr", defaultVal: "", hint: "Vilket plan är lägenheten på", type: "number" },
-      { key: "location",          label: "Stad/region",          unit: "",   defaultVal: "", hint: "Stockholm/Göteborg/övriga", type: "text" },
-    ],
-    checks: [
-      { key: "demo_floor",      label: "Riv golv",                       defaultOn: false },
-      { key: "demo_walls",      label: "Riv väggar",                     defaultOn: false },
-      { key: "demo_ceiling",    label: "Riv tak",                        defaultOn: false },
-      { key: "demo_kitchen",    label: "Riv köksinredning",              defaultOn: false },
-      { key: "demo_bathroom",   label: "Riv badrumsinredning",           defaultOn: false },
-      { key: "no_elevator", label: "Utan hiss", defaultOn: false },
-      { key: "container_inc",   label: "Container ingår",                defaultOn: true  },
-      { key: "transport_inc",   label: "Bortforsling ingår",             defaultOn: true  },
-      { key: "asbest_risk",     label: "Misstänkt asbest (sanering UE)", defaultOn: false },
-      { key: "mogel_risk",      label: "Misstänkt mögel (sanering UE)",  defaultOn: false },
-    ],
+    // ─────────────────────────────────────────────────────────────────
+    // Tom skal-konfig — den nya rivningssidan renderas via en separat
+    // sektion (RIVNING_SUBTYPES) istället för det generiska fält/check-
+    // blocket. pill behålls för rubriken "Smarta parametrar".
+    // ─────────────────────────────────────────────────────────────────
+    pill: "Anpassade fält per rivningstyp — välj nedan vad som rivs",
+    fields: [],
+    checks: [],
   },
 
   fasad: {
     pill: "AI beräknar fasadyta, panel och målning",
     fields: [
-      { key: "facade_type", label: "Fasadtyp", unit: "", defaultVal: "Stående panel", hint: "Avgör material och monteringsnorm", type: "select",
-        options: ["Stående panel", "Liggande panel", "Puts", "Tegel", "Fibercementskivor"] },
       { key: "facade_area",  label: "Fasadyta",         unit: "m²", defaultVal: "", hint: "Total yta att klä eller måla", type: "number" },
       { key: "perimeter",    label: "Husomkrets",       unit: "m",  defaultVal: "", hint: "Mät runt hela huset", type: "number" },
       { key: "facade_height",label: "Fasadhöjd",        unit: "m",  defaultVal: "", hint: "Mark till takfot", type: "number" },
@@ -97,9 +81,7 @@ const JOB_PARAMS: Record<string, JobParams> = {
       { key: "altan_height",     label: "Höjd över mark",    unit: "m",  defaultVal: "0.5", hint: "Påverkar plintlängd", type: "number" },
       { key: "ground_type",      label: "Markförhållanden",  unit: "",   defaultVal: "Normal", hint: "Påverkar plintarbete", type: "select",
         options: ["Fast mark/grus", "Lerjord (svår)", "Berg", "Befintlig platta"] },
-      { key: "railing_sides", label: "Räcke på sidor", unit: "sidor", defaultVal: "", hint: "Antal sidor med räcke (1–4)", type: "select",
-        options: ["Ingen", "1 sida", "2 sidor", "3 sidor", "4 sidor (runt om)"] },
-      { key: "railing", label: "Räcke (lpm)", unit: "lpm", defaultVal: "", hint: "Eller ange exakt längd i löpmeter", type: "number" },
+      { key: "railing",          label: "Räcke",             unit: "lpm", defaultVal: "", hint: "Längd räcke i löpmeter", type: "number" },
       { key: "stairs",           label: "Trappa",            unit: "steg", defaultVal: "", hint: "Antal steg på trappan", type: "number" },
       { key: "location",         label: "Stad/region",       unit: "",   defaultVal: "", hint: "Stockholm/Göteborg/övriga", type: "text" },
     ],
@@ -129,7 +111,165 @@ const JOB_PARAMS: Record<string, JobParams> = {
   },
 };
 
-// ── Hjälpfunktioner ───────────────────────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════════════════════
+// RIVNINGS-KONFIGURATION (separat från JOB_PARAMS)
+// ─────────────────────────────────────────────────────────────────────────────
+// När jobType === "rivning" renderas en EGEN sektion med:
+//   1. Sub-typsväljare (Badrum / Kök / Hela inredning)
+//   2. Sub-typens specifika fält + checkar
+//   3. Gemensamt "Plats & access"-block (våningsplan, hiss, byggnadstyp osv.)
+//   4. Gemensamt "Saneringsstatus"-block (asbest, mögel, dammsanering)
+//
+// Allt detta packas sedan i build_params i buildAiParams() så att backend +
+// AI får STRUKTURERAD data att agera på (för deterministiska backend-regler:
+// bär-tillägg, skyddstäckning trapphus, deponi-densitet osv).
+// ═════════════════════════════════════════════════════════════════════════════
+
+interface RivningSubType {
+  id: string;
+  label: string;
+  pill: string;
+  fields: FieldDef[];
+  checks: CheckDef[];
+}
+
+const RIVNING_SUBTYPES: RivningSubType[] = [
+  {
+    id: "badrum",
+    label: "Badrum",
+    pill: "Rivning av våtrum — kakel, klinker, sanitet",
+    fields: [
+      { key: "br_floor_sqm",  label: "Golvyta",        unit: "m²", defaultVal: "", hint: "Yta klinker som ska rivas", type: "number" },
+      { key: "br_wall_sqm",   label: "Väggyta",        unit: "m²", defaultVal: "", hint: "Total yta kakel/plastmatta på väggar", type: "number" },
+      { key: "br_doors",      label: "Innerdörrar",    unit: "st", defaultVal: "", hint: "Antal dörrar inkl. karm som rivs", type: "number" },
+    ],
+    checks: [
+      { key: "br_kakel",          label: "Riv kakel på väggar",            defaultOn: true  },
+      { key: "br_klinker",        label: "Riv klinker på golv",            defaultOn: true  },
+      { key: "br_plastmatta",     label: "Riv plastmatta",                 defaultOn: false },
+      { key: "br_innertak",       label: "Riv innertak (gips)",            defaultOn: false },
+      { key: "br_badkar",         label: "Demontera badkar",               defaultOn: false },
+      { key: "br_dusch",          label: "Demontera duschvägg/duschkabin", defaultOn: false },
+      { key: "br_wc",             label: "Demontera WC-stol",              defaultOn: true  },
+      { key: "br_tvattstall",     label: "Demontera tvättställ + blandare",defaultOn: true  },
+      { key: "br_tvattmaskin",    label: "Demontera tvättmaskinsanslutning", defaultOn: false },
+      { key: "br_sockelskap",     label: "Demontera sockelskåp",           defaultOn: false },
+      { key: "br_separat_wc",     label: "Inkluderar separat WC",          defaultOn: false },
+    ],
+  },
+  {
+    id: "kok",
+    label: "Kök",
+    pill: "Rivning av kök — inredning, ytskikt, vitvaror",
+    fields: [
+      { key: "ko_floor_sqm",     label: "Golvyta",          unit: "m²", defaultVal: "", hint: "Yta klinker/golvmaterial som rivs", type: "number" },
+      { key: "ko_splash_sqm",    label: "Stänkskydd",       unit: "m²", defaultVal: "", hint: "Yta kakel ovanför bänk", type: "number" },
+      { key: "ko_appliances",    label: "Antal vitvaror",   unit: "st", defaultVal: "", hint: "Kyl, frys, häll, ugn, fläkt, diskmaskin", type: "number" },
+      { key: "ko_cabinet_lpm",   label: "Köksskåp",         unit: "lpm", defaultVal: "", hint: "Total löpmeter skåpsinredning", type: "number" },
+    ],
+    checks: [
+      { key: "ko_appliances_careful", label: "Vitvaror demonteras VARSAMT (kund säljer/behåller)", defaultOn: false },
+      { key: "ko_appliances_scrap",   label: "Vitvaror slängs som avfall",                         defaultOn: true  },
+      { key: "ko_cabinets",           label: "Riv köksskåp + bänkskiva",                           defaultOn: true  },
+      { key: "ko_splash",             label: "Riv stänkskydd / kakel ovanför bänk",                defaultOn: true  },
+      { key: "ko_floor",              label: "Riv klinkergolv ned till betong",                    defaultOn: false },
+      { key: "ko_island",             label: "Köksö / halvö ingår",                                defaultOn: false },
+      { key: "ko_keep_walls",         label: "Innerväggar BEHÅLLS (endast ytskikt)",               defaultOn: true  },
+    ],
+  },
+  {
+    id: "hela_inredning",
+    label: "Hela inredning (multi)",
+    pill: "Komplett invändig rivning — bocka i alla objekt som ingår",
+    fields: [
+      // Multi-objekt med kvantifiering
+      { key: "hi_floor_total",    label: "Total rivningsyta",     unit: "m²",  defaultVal: "", hint: "Summan av alla objekt", type: "number" },
+      { key: "hi_volume_total",   label: "Total rivningsvolym",   unit: "m³",  defaultVal: "", hint: "Summa rivningsavfall", type: "number" },
+    ],
+    checks: [
+      // Notera: dessa fungerar som "objekt-flaggor". Antalet/ytan per
+      // objekt fylls i via separata multi-objekt-fält (renderas i UI:t).
+      { key: "hi_obj_badrum",      label: "Inkluderar badrum",        defaultOn: false },
+      { key: "hi_obj_separat_wc",  label: "Inkluderar separat WC",    defaultOn: false },
+      { key: "hi_obj_kok",         label: "Inkluderar kök",           defaultOn: false },
+      { key: "hi_obj_innervagg",   label: "Inkluderar innerväggar",   defaultOn: false },
+      { key: "hi_obj_innertak",    label: "Inkluderar innertak",      defaultOn: false },
+      { key: "hi_obj_golv",        label: "Inkluderar golvbeläggning",defaultOn: false },
+      { key: "hi_appliances_careful", label: "Vitvaror demonteras varsamt (säljs)", defaultOn: false },
+      { key: "hi_appliances_scrap",   label: "Vitvaror slängs",                     defaultOn: false },
+    ],
+  },
+];
+
+// ─── Gemensamma "Plats & access"-fält (ALLA rivningstyper) ───
+// Dessa driver backend-tvång:
+//   floor_above_entry + has_elevator → bär-tillägg + skyddstäckning trapphus
+//   building_type → skyddstäckning trapphus (deterministisk regel)
+
+interface CommonField {
+  key: string;
+  label: string;
+  unit: string;
+  hint: string;
+  type: "text" | "number" | "select";
+  options?: string[];
+  defaultVal?: string;
+}
+
+const RIVNING_PLATS_FIELDS: CommonField[] = [
+  { key: "building_type", label: "Byggnadstyp", unit: "", type: "select", defaultVal: "apartment_brf",
+    options: ["apartment_brf", "apartment_rental", "house_detached", "commercial"],
+    hint: "Lägenhet/BRF triggar skyddstäckning trapphus" },
+  { key: "floor_above_entry", label: "Våningsplan", unit: "vån", type: "number", defaultVal: "",
+    hint: "Antal våningar från entré till lägenheten" },
+  { key: "build_year", label: "Byggår", unit: "", type: "number", defaultVal: "",
+    hint: "Pre-1975 = asbestrisk, kontrollera" },
+  { key: "stairwell_width", label: "Trapphusbredd", unit: "", type: "select", defaultVal: "standard",
+    options: ["smal", "standard", "bred"],
+    hint: "Smal = långsammare bortforsling" },
+  { key: "bjalklag_type", label: "Bjälklag", unit: "", type: "select", defaultVal: "betong",
+    options: ["betong", "trabjalklag", "kombinerat"],
+    hint: "Avgör densitet i deponi-beräkning" },
+];
+
+const RIVNING_PLATS_CHECKS: CheckDef[] = [
+  { key: "has_elevator",        label: "Hiss tillgänglig för bortforsling", defaultOn: false },
+  { key: "load_bearing_walls",  label: "Bärande väggar berörs (kräver konstruktör)", defaultOn: false },
+  { key: "container_on_street", label: "Container ställs på gatan (tillstånd kund)", defaultOn: true  },
+  { key: "work_hours_limited",  label: "Arbetstid begränsad (BRF-regler)",  defaultOn: false },
+];
+
+// ─── Saneringsstatus (gemensamt för alla rivningstyper) ───
+
+const RIVNING_SANERING_CHECKS: CheckDef[] = [
+  { key: "asbest_provtagen_neg", label: "Asbestprov taget — NEGATIVT",        defaultOn: false },
+  { key: "asbest_risk",          label: "Misstänkt asbest (sanering UE)",    defaultOn: false },
+  { key: "mogel_risk",           label: "Misstänkt mögel/fukt (sanering UE)", defaultOn: false },
+  { key: "dammsanering_required",label: "Dammsanering krävs (BRF-krav)",     defaultOn: true  },
+];
+
+// Hjälp-mappar för att översätta enum-värden till mänsklig text
+// (skickas till AI:n så den kan läsa "Bostadsrätt" istället för "apartment_brf")
+const BUILDING_TYPE_LABELS: Record<string, string> = {
+  apartment_brf:    "Bostadsrätt / lägenhet i flerbostadshus",
+  apartment_rental: "Hyresrätt / lägenhet i flerbostadshus",
+  house_detached:   "Villa / radhus / fristående",
+  commercial:       "Kommersiell lokal",
+};
+
+const STAIRWELL_WIDTH_LABELS: Record<string, string> = {
+  smal:     "Smal (<1,2 m)",
+  standard: "Standard",
+  bred:     "Bred",
+};
+
+const BJALKLAG_LABELS: Record<string, string> = {
+  betong:       "Betong (tungt avfall)",
+  trabjalklag:  "Träbjälklag",
+  kombinerat:   "Kombinerat",
+};
+
+
 function fmtKr(n: number): string {
   return new Intl.NumberFormat("sv-SE", { style: "decimal", maximumFractionDigits: 0 }).format(n) + " kr";
 }
@@ -453,6 +593,22 @@ function EstimateInner() {
   // Dynamiska check-värden: { [key]: boolean }
   const [checkValues, setCheckValues] = useState<Record<string, boolean>>({});
 
+  // ─── RIVNING ─────────────────────────────────────────────────────────
+  // Egna state-variabler för den nya rivnings-UI:n. Renderas BARA när
+  // jobType === "rivning" och påverkar inte andra jobbtyper.
+  const [rivningSubType, setRivningSubType] = useState<string>("badrum");
+  // Sub-typens egna fält + checkar
+  const [rivningFieldValues, setRivningFieldValues] = useState<Record<string, string>>({});
+  const [rivningCheckValues, setRivningCheckValues] = useState<Record<string, boolean>>({});
+  // Gemensamma "Plats & access"-fält
+  const [platsFieldValues, setPlatsFieldValues] = useState<Record<string, string>>({});
+  const [platsCheckValues, setPlatsCheckValues] = useState<Record<string, boolean>>({});
+  // Saneringsstatus
+  const [saneringCheckValues, setSaneringCheckValues] = useState<Record<string, boolean>>({});
+  // Multi-objekt: per-objekt yta för "Hela inredning" (badrum, wc, kök osv.)
+  // Format: { "badrum_sqm": "5", "wc_sqm": "2", "kok_sqm": "11" }
+  const [hiObjectAreas, setHiObjectAreas] = useState<Record<string, string>>({});
+
   // Fritext-beskrivning
   const [description, setDescription] = useState("");
 
@@ -518,6 +674,48 @@ function EstimateInner() {
     setCheckValues(cv);
   }, [jobType]);
 
+  // ─── RIVNING: initiera sub-typens fält när sub-typ ändras ───
+  // Kör när rivningSubType ändras ELLER när användaren byter till
+  // jobType=rivning. Bevarar redan ifyllda värden om nyckeln finns kvar.
+  useEffect(() => {
+    if (jobType !== "rivning") return;
+    const sub = RIVNING_SUBTYPES.find(s => s.id === rivningSubType);
+    if (!sub) return;
+    setRivningFieldValues(prev => {
+      const next: Record<string, string> = {};
+      sub.fields.forEach(f => { next[f.key] = prev[f.key] ?? f.defaultVal; });
+      return next;
+    });
+    setRivningCheckValues(prev => {
+      const next: Record<string, boolean> = {};
+      sub.checks.forEach(c => { next[c.key] = prev[c.key] ?? c.defaultOn; });
+      return next;
+    });
+  }, [jobType, rivningSubType]);
+
+  // ─── RIVNING: initiera plats + sanering en gång ───
+  useEffect(() => {
+    if (jobType !== "rivning") return;
+    setPlatsFieldValues(prev => {
+      if (Object.keys(prev).length > 0) return prev;
+      const next: Record<string, string> = {};
+      RIVNING_PLATS_FIELDS.forEach(f => { next[f.key] = f.defaultVal ?? ""; });
+      return next;
+    });
+    setPlatsCheckValues(prev => {
+      if (Object.keys(prev).length > 0) return prev;
+      const next: Record<string, boolean> = {};
+      RIVNING_PLATS_CHECKS.forEach(c => { next[c.key] = c.defaultOn; });
+      return next;
+    });
+    setSaneringCheckValues(prev => {
+      if (Object.keys(prev).length > 0) return prev;
+      const next: Record<string, boolean> = {};
+      RIVNING_SANERING_CHECKS.forEach(c => { next[c.key] = c.defaultOn; });
+      return next;
+    });
+  }, [jobType]);
+
   // Ladda settings
   useEffect(() => {
     const s = getSettings();
@@ -569,45 +767,121 @@ function EstimateInner() {
     if (tilePricePerSqm && parseFloat(tilePricePerSqm) > 0) {
       out["tile_price_per_sqm"] = `${tilePricePerSqm} kr/kvm inkl. moms`;
     }
-// Kakel pris per kvm om angivet
-    if (tilePricePerSqm && parseFloat(tilePricePerSqm) > 0) {
-      out["tile_price_per_sqm"] = `${tilePricePerSqm} kr/kvm inkl. moms`;
-    }
 
-    // Rivning: bygg ground_type från våningsplan och hiss
+    // ═════════════════════════════════════════════════════════════════
+    // RIVNING — packa all sub-typ + plats + sanering i build_params
+    // ═════════════════════════════════════════════════════════════════
     if (jobType === "rivning") {
-      const floor = fieldValues["floor_number"];
-      const noElevator = checkValues["no_elevator"];
-      if (floor && parseInt(floor) > 0) {
-        out["floor_number"] = `${floor} tr`;
-      }
-      if (noElevator) {
-        out["ground_type"] = "utan hiss";
-      }
-    }
+      const sub = RIVNING_SUBTYPES.find(s => s.id === rivningSubType);
 
-    // Altan: beräkna räckeslängd från sidor om lpm ej angivet
-    if (jobType === "altan" && fieldValues["railing_sides"] && !fieldValues["railing"]) {
-      const dims = fieldValues["altan_dimensions"] || "";
-      const match = dims.match(/(\d+[\.,]?\d*)\s*[x×]\s*(\d+[\.,]?\d*)/i);
-      if (match) {
-        const b = parseFloat(match[1].replace(",", "."));
-        const l = parseFloat(match[2].replace(",", "."));
-        const sidesMap: Record<string, number> = {
-          "1 sida": Math.max(b, l),
-          "2 sidor": b + l,
-          "3 sidor": 2 * Math.min(b, l) + Math.max(b, l),
-          "4 sidor (runt om)": 2 * b + 2 * l,
-        };
-        const sides = fieldValues["railing_sides"];
-        if (sidesMap[sides]) {
-          out["railing"] = `${Math.round(sidesMap[sides])} lpm`;
+      // 1. Sub-typens identitet
+      out["rivning_subtype"] = sub?.label ?? rivningSubType;
+
+      // 2. Sub-typens fält (med enheter)
+      if (sub) {
+        sub.fields.forEach(f => {
+          const v = rivningFieldValues[f.key];
+          if (v) out[f.key] = f.unit ? `${v} ${f.unit}` : v;
+        });
+
+        // 3. Sub-typens checkar (de som är PÅ → label)
+        const subCheckedLabels = sub.checks
+          .filter(c => rivningCheckValues[c.key])
+          .map(c => c.label);
+        if (subCheckedLabels.length > 0) {
+          out["rivning_objekt_detaljer"] = subCheckedLabels.join(", ");
         }
+      }
+
+      // 4. Hela inredning — multi-objekt med per-objekt yta
+      if (rivningSubType === "hela_inredning") {
+        const hiObjects: string[] = [];
+        if (rivningCheckValues["hi_obj_badrum"]) {
+          const a = hiObjectAreas["badrum_sqm"];
+          hiObjects.push(a ? `Badrum (${a} m²)` : "Badrum");
+        }
+        if (rivningCheckValues["hi_obj_separat_wc"]) {
+          const a = hiObjectAreas["wc_sqm"];
+          hiObjects.push(a ? `Separat WC (${a} m²)` : "Separat WC");
+        }
+        if (rivningCheckValues["hi_obj_kok"]) {
+          const a = hiObjectAreas["kok_sqm"];
+          hiObjects.push(a ? `Kök (${a} m²)` : "Kök");
+        }
+        if (rivningCheckValues["hi_obj_innervagg"]) hiObjects.push("Innerväggar");
+        if (rivningCheckValues["hi_obj_innertak"])  hiObjects.push("Innertak");
+        if (rivningCheckValues["hi_obj_golv"])      hiObjects.push("Golvbeläggning");
+        if (hiObjects.length > 0) {
+          out["rivningsobjekt_lista"] = hiObjects.join(", ");
+        }
+      }
+
+      // 5. Plats & access (DESSA ÄR NYCKELN för backend-tvång)
+      const buildingType = platsFieldValues["building_type"] || "apartment_brf";
+      const floorAbove   = platsFieldValues["floor_above_entry"] || "";
+      const buildYear    = platsFieldValues["build_year"] || "";
+      const stairwellW   = platsFieldValues["stairwell_width"] || "standard";
+      const bjalklag     = platsFieldValues["bjalklag_type"] || "betong";
+      const hasElevator  = !!platsCheckValues["has_elevator"];
+
+      out["building_type"]    = BUILDING_TYPE_LABELS[buildingType] ?? buildingType;
+      if (floorAbove) out["floor_above_entry"] = `${floorAbove} vån`;
+      if (buildYear)  out["build_year"]        = buildYear;
+      out["stairwell_width"]  = STAIRWELL_WIDTH_LABELS[stairwellW] ?? stairwellW;
+      out["bjalklag_type"]    = BJALKLAG_LABELS[bjalklag] ?? bjalklag;
+      out["has_elevator"]     = hasElevator ? "ja" : "nej";
+
+      // ground_type-fältet bevaras eftersom backend-prompten redan
+      // lyssnar på det. Vi konstruerar det från strukturerade fält:
+      const groundParts: string[] = [];
+      if (floorAbove) groundParts.push(`${floorAbove} tr`);
+      if (!hasElevator) groundParts.push("utan hiss");
+      if (stairwellW === "smal") groundParts.push("smalt trapphus");
+      if (bjalklag === "betong") groundParts.push("betongbjälklag");
+      if (groundParts.length > 0) {
+        out["ground_type"] = groundParts.join(", ");
+      }
+
+      // 6. Plats-checkar (ej elevator — den är redan separat)
+      const platsCheckedLabels = RIVNING_PLATS_CHECKS
+        .filter(c => c.key !== "has_elevator" && platsCheckValues[c.key])
+        .map(c => c.label);
+      if (platsCheckedLabels.length > 0) {
+        out["plats_villkor"] = platsCheckedLabels.join(", ");
+      }
+
+      // 7. Saneringsstatus
+      const saneringLabels = RIVNING_SANERING_CHECKS
+        .filter(c => saneringCheckValues[c.key])
+        .map(c => c.label);
+      if (saneringLabels.length > 0) {
+        out["saneringsstatus"] = saneringLabels.join(", ");
+      }
+
+      // 8. Override "ingår_i_jobbet" så det INTE använder gamla generiska
+      //    JOB_PARAMS.rivning.checks (som nu är tom). Bygger en summering
+      //    av allt sub-checkar + plats + sanering så AI:n får en
+      //    sammanställd lista att läsa.
+      const allChecked: string[] = [];
+      if (sub) {
+        sub.checks.forEach(c => {
+          if (rivningCheckValues[c.key]) allChecked.push(c.label);
+        });
+      }
+      RIVNING_PLATS_CHECKS.forEach(c => {
+        if (platsCheckValues[c.key]) allChecked.push(c.label);
+      });
+      RIVNING_SANERING_CHECKS.forEach(c => {
+        if (saneringCheckValues[c.key]) allChecked.push(c.label);
+      });
+      if (allChecked.length > 0) {
+        out["ingår_i_jobbet"] = allChecked.join(", ");
       }
     }
 
     return out;
-  }    
+  }
+
   const loadingMessages = [
     "Analyserar jobbeskrivningen...",
     "Beräknar materialåtgång...",
@@ -871,6 +1145,8 @@ function EstimateInner() {
           {params.pill}
         </div>
 
+        {/* Generiskt fält/check-block — INTE för rivning (rivning har eget UI nedan) */}
+        {jobType !== "rivning" && (
         <div className="card" style={{ marginBottom: 16 }}>
           {/* Fält */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: params.checks.length ? 14 : 0 }}>
@@ -1016,6 +1292,254 @@ function EstimateInner() {
             </>
           )}
         </div>
+        )}
+
+        {/* ═══════════════════════════════════════════════════════════════════
+             RIVNINGS-UI (ersätter det generiska blocket ovan)
+             Renderas BARA när jobType === "rivning".
+             Andra jobbtyper påverkas inte.
+            ═══════════════════════════════════════════════════════════════════ */}
+        {jobType === "rivning" && (() => {
+          const sub = RIVNING_SUBTYPES.find(s => s.id === rivningSubType) || RIVNING_SUBTYPES[0];
+
+          // Hjälpkomponent för fält
+          const renderField = (
+            f: FieldDef | CommonField,
+            value: string,
+            onChange: (v: string) => void,
+            labelOverride?: Record<string, string>,
+          ) => (
+            <div key={f.key} style={{ background: "var(--bg-surface)", border: "0.5px solid var(--border)", borderRadius: "var(--radius)", padding: "10px 12px" }}>
+              <div style={{ fontSize: 10, fontWeight: 600, color: "var(--text-faint)", letterSpacing: "0.5px", textTransform: "uppercase", marginBottom: 7 }}>
+                {f.label}
+              </div>
+              {f.type === "select" ? (
+                <select
+                  className="input"
+                  style={{ width: "100%", padding: "6px 8px", fontSize: 13 }}
+                  value={value || (f as any).defaultVal || ""}
+                  onChange={e => onChange(e.target.value)}
+                >
+                  {(f.options || []).map(o => (
+                    <option key={o} value={o}>{labelOverride?.[o] ?? o}</option>
+                  ))}
+                </select>
+              ) : (
+                <div style={{ display: "flex", alignItems: "center", background: "var(--bg-elevated)", border: "0.5px solid var(--border)", borderRadius: "var(--radius)", padding: "6px 10px" }}>
+                  <input
+                    type={f.type === "number" ? "number" : "text"}
+                    placeholder={f.type === "number" ? "0" : "—"}
+                    value={value}
+                    onChange={e => onChange(e.target.value)}
+                    style={{ background: "none", border: "none", outline: "none", fontSize: 13, color: "var(--text-primary)", width: "100%", minWidth: 0 }}
+                  />
+                  {f.unit && <span style={{ fontSize: 11, color: "var(--text-faint)", marginLeft: 4, flexShrink: 0 }}>{f.unit}</span>}
+                </div>
+              )}
+              <div style={{ fontSize: 10, color: "var(--text-faint)", marginTop: 5, lineHeight: 1.4, opacity: 0.7 }}>{f.hint}</div>
+            </div>
+          );
+
+          // Hjälpkomponent för checkbox
+          const renderCheck = (c: CheckDef, checked: boolean, onToggle: () => void) => (
+            <label key={c.key} style={{ display: "flex", alignItems: "center", gap: 9, cursor: "pointer", padding: "6px 0" }}>
+              <div
+                onClick={onToggle}
+                style={{
+                  width: 16, height: 16, borderRadius: 4, flexShrink: 0,
+                  border: `0.5px solid ${checked ? "rgba(106,129,147,0.6)" : "var(--border)"}`,
+                  background: checked ? "rgba(106,129,147,0.18)" : "transparent",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}
+              >
+                {checked && (
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                    <path d="M2 5l2.5 2.5L8 3" stroke="#6a8193" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                )}
+              </div>
+              <span style={{ fontSize: 12, color: checked ? "var(--text-secondary)" : "var(--text-muted)" }}>
+                {c.label}
+              </span>
+            </label>
+          );
+
+          return (
+            <>
+              {/* ─── 1. Sub-typsväljare ─── */}
+              <div className="card" style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 10, fontWeight: 600, color: "var(--text-faint)", letterSpacing: "0.5px", textTransform: "uppercase", marginBottom: 8 }}>
+                  Vad ska rivas
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: `repeat(${RIVNING_SUBTYPES.length}, 1fr)`, gap: 7 }}>
+                  {RIVNING_SUBTYPES.map(s => (
+                    <button
+                      key={s.id}
+                      onClick={() => setRivningSubType(s.id)}
+                      style={{
+                        background: rivningSubType === s.id ? "rgba(106,129,147,0.12)" : "var(--bg-surface)",
+                        border: `0.5px solid ${rivningSubType === s.id ? "rgba(106,129,147,0.5)" : "var(--border)"}`,
+                        borderRadius: "var(--radius)",
+                        padding: "10px 8px",
+                        textAlign: "center",
+                        cursor: "pointer",
+                        fontSize: 12,
+                        fontWeight: rivningSubType === s.id ? 600 : 400,
+                        color: rivningSubType === s.id ? "#8aaabb" : "var(--text-muted)",
+                      }}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 8, lineHeight: 1.4 }}>{sub.pill}</div>
+              </div>
+
+              {/* ─── 2. Sub-typens fält ─── */}
+              {sub.fields.length > 0 && (
+                <div className="card" style={{ marginBottom: 14 }}>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: "var(--text-faint)", letterSpacing: "0.5px", textTransform: "uppercase", marginBottom: 10 }}>
+                    Mått &amp; mängder — {sub.label}
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                    {sub.fields.map(f => renderField(
+                      f,
+                      rivningFieldValues[f.key] ?? "",
+                      v => setRivningFieldValues(prev => ({ ...prev, [f.key]: v })),
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ─── 2b. Hela inredning — multi-objekt med kvantifiering ─── */}
+              {rivningSubType === "hela_inredning" && (
+                <div className="card" style={{ marginBottom: 14 }}>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: "var(--text-faint)", letterSpacing: "0.5px", textTransform: "uppercase", marginBottom: 10 }}>
+                    Objekt som ingår — bocka i &amp; ange yta
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                    {([
+                      { checkKey: "hi_obj_badrum",     areaKey: "badrum_sqm", label: "Badrum" },
+                      { checkKey: "hi_obj_separat_wc", areaKey: "wc_sqm",     label: "Separat WC" },
+                      { checkKey: "hi_obj_kok",        areaKey: "kok_sqm",    label: "Kök" },
+                    ]).map(o => {
+                      const checked = !!rivningCheckValues[o.checkKey];
+                      return (
+                        <div key={o.checkKey} style={{ background: "var(--bg-surface)", border: `0.5px solid ${checked ? "rgba(106,129,147,0.5)" : "var(--border)"}`, borderRadius: "var(--radius)", padding: "10px 12px" }}>
+                          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", marginBottom: checked ? 8 : 0 }}>
+                            <div
+                              onClick={() => setRivningCheckValues(prev => ({ ...prev, [o.checkKey]: !prev[o.checkKey] }))}
+                              style={{
+                                width: 16, height: 16, borderRadius: 4, flexShrink: 0,
+                                border: `0.5px solid ${checked ? "rgba(106,129,147,0.6)" : "var(--border)"}`,
+                                background: checked ? "rgba(106,129,147,0.18)" : "transparent",
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                              }}
+                            >
+                              {checked && (
+                                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                                  <path d="M2 5l2.5 2.5L8 3" stroke="#6a8193" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                              )}
+                            </div>
+                            <span style={{ fontSize: 13, fontWeight: 500, color: checked ? "var(--text-secondary)" : "var(--text-muted)" }}>{o.label}</span>
+                          </label>
+                          {checked && (
+                            <div style={{ display: "flex", alignItems: "center", background: "var(--bg-elevated)", border: "0.5px solid var(--border)", borderRadius: "var(--radius)", padding: "6px 10px" }}>
+                              <input
+                                type="number"
+                                placeholder="Yta"
+                                value={hiObjectAreas[o.areaKey] ?? ""}
+                                onChange={e => setHiObjectAreas(prev => ({ ...prev, [o.areaKey]: e.target.value }))}
+                                style={{ background: "none", border: "none", outline: "none", fontSize: 13, color: "var(--text-primary)", width: "100%", minWidth: 0 }}
+                              />
+                              <span style={{ fontSize: 11, color: "var(--text-faint)", marginLeft: 4 }}>m²</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {/* Övriga objekt utan kvantifiering */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, marginTop: 12 }}>
+                    {([
+                      { key: "hi_obj_innervagg",       label: "Innerväggar" },
+                      { key: "hi_obj_innertak",        label: "Innertak" },
+                      { key: "hi_obj_golv",            label: "Golvbeläggning" },
+                      { key: "hi_appliances_careful",  label: "Vitvaror demonteras varsamt (säljs)" },
+                      { key: "hi_appliances_scrap",    label: "Vitvaror slängs" },
+                    ]).map(c => renderCheck(
+                      { key: c.key, label: c.label, defaultOn: false },
+                      !!rivningCheckValues[c.key],
+                      () => setRivningCheckValues(prev => ({ ...prev, [c.key]: !prev[c.key] })),
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ─── 3. Sub-typens checkar (badrum, kök) ─── */}
+              {sub.checks.length > 0 && rivningSubType !== "hela_inredning" && (
+                <div className="card" style={{ marginBottom: 14 }}>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: "var(--text-faint)", letterSpacing: "0.5px", textTransform: "uppercase", marginBottom: 10 }}>
+                    Detaljer — {sub.label}
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                    {sub.checks.map(c => renderCheck(
+                      c,
+                      !!rivningCheckValues[c.key],
+                      () => setRivningCheckValues(prev => ({ ...prev, [c.key]: !prev[c.key] })),
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ─── 4. Plats & access (gemensamt) ─── */}
+              <div className="card" style={{ marginBottom: 14 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: "var(--text-faint)", letterSpacing: "0.5px", textTransform: "uppercase" }}>
+                    Plats &amp; access
+                  </div>
+                  <div style={{ fontSize: 10, color: "var(--text-faint)", fontStyle: "italic", opacity: 0.7 }}>
+                    Driver bär-tillägg + skyddstäckning trapphus
+                  </div>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 12 }}>
+                  {RIVNING_PLATS_FIELDS.map(f => renderField(
+                    f,
+                    platsFieldValues[f.key] ?? "",
+                    v => setPlatsFieldValues(prev => ({ ...prev, [f.key]: v })),
+                    f.key === "building_type"   ? BUILDING_TYPE_LABELS
+                    : f.key === "stairwell_width" ? STAIRWELL_WIDTH_LABELS
+                    : f.key === "bjalklag_type"   ? BJALKLAG_LABELS
+                    : undefined,
+                  ))}
+                </div>
+                <div style={{ height: "0.5px", background: "var(--border)", marginBottom: 8 }} />
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                  {RIVNING_PLATS_CHECKS.map(c => renderCheck(
+                    c,
+                    !!platsCheckValues[c.key],
+                    () => setPlatsCheckValues(prev => ({ ...prev, [c.key]: !prev[c.key] })),
+                  ))}
+                </div>
+              </div>
+
+              {/* ─── 5. Saneringsstatus (gemensamt) ─── */}
+              <div className="card" style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 10, fontWeight: 600, color: "var(--text-faint)", letterSpacing: "0.5px", textTransform: "uppercase", marginBottom: 10 }}>
+                  Sanering &amp; dammkrav
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                  {RIVNING_SANERING_CHECKS.map(c => renderCheck(
+                    c,
+                    !!saneringCheckValues[c.key],
+                    () => setSaneringCheckValues(prev => ({ ...prev, [c.key]: !prev[c.key] })),
+                  ))}
+                </div>
+              </div>
+            </>
+          );
+        })()}
 
         {/* Jobbeskrivning */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, marginTop: 4 }}>
