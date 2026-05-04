@@ -1503,6 +1503,66 @@ function EstimateInner() {
                     Driver bär-tillägg + skyddstäckning trapphus
                   </div>
                 </div>
+
+                {/* Adress + avstånd + arbetsdagar — flyttat hit från "Arbetsplats & logistik" */}
+                <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 10, marginBottom: 12 }}>
+                  <div style={{ background: "var(--bg-surface)", border: "0.5px solid var(--border)", borderRadius: "var(--radius)", padding: "10px 12px" }}>
+                    <div style={{ fontSize: 10, fontWeight: 600, color: "var(--text-faint)", letterSpacing: "0.5px", textTransform: "uppercase", marginBottom: 7 }}>
+                      Adress till arbetsplats
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", background: "var(--bg-elevated)", border: "0.5px solid var(--border)", borderRadius: "var(--radius)", padding: "6px 10px" }}>
+                      <input
+                        type="text"
+                        placeholder="t.ex. Hantverkargatan 52, 112 31 Stockholm"
+                        value={address}
+                        onChange={e => setAddress(e.target.value)}
+                        style={{ background: "none", border: "none", outline: "none", fontSize: 13, color: "var(--text-primary)", width: "100%", minWidth: 0 }}
+                      />
+                    </div>
+                    <div style={{ fontSize: 10, color: "var(--text-faint)", marginTop: 5, lineHeight: 1.4, opacity: 0.7 }}>
+                      Innanför Stockholms tullar → trängselskatt 135 kr/dag
+                    </div>
+                  </div>
+                  <div style={{ background: "var(--bg-surface)", border: "0.5px solid var(--border)", borderRadius: "var(--radius)", padding: "10px 12px" }}>
+                    <div style={{ fontSize: 10, fontWeight: 600, color: "var(--text-faint)", letterSpacing: "0.5px", textTransform: "uppercase", marginBottom: 7 }}>
+                      Avstånd t/r enkel väg
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", background: "var(--bg-elevated)", border: "0.5px solid var(--border)", borderRadius: "var(--radius)", padding: "6px 10px" }}>
+                      <input
+                        type="number"
+                        placeholder="0"
+                        value={distanceKm}
+                        onChange={e => setDistanceKm(e.target.value)}
+                        style={{ background: "none", border: "none", outline: "none", fontSize: 13, color: "var(--text-primary)", width: "100%", minWidth: 0 }}
+                      />
+                      <span style={{ fontSize: 11, color: "var(--text-faint)", marginLeft: 4, flexShrink: 0 }}>km</span>
+                    </div>
+                    <div style={{ fontSize: 10, color: "var(--text-faint)", marginTop: 5, lineHeight: 1.4, opacity: 0.7 }}>
+                      25 kr/km × 2 × resedagar
+                    </div>
+                  </div>
+                  <div style={{ background: "var(--bg-surface)", border: "0.5px solid var(--border)", borderRadius: "var(--radius)", padding: "10px 12px" }}>
+                    <div style={{ fontSize: 10, fontWeight: 600, color: "var(--text-faint)", letterSpacing: "0.5px", textTransform: "uppercase", marginBottom: 7 }}>
+                      Antal arbetsdagar
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", background: "var(--bg-elevated)", border: "0.5px solid var(--border)", borderRadius: "var(--radius)", padding: "6px 10px" }}>
+                      <input
+                        type="number"
+                        placeholder="auto"
+                        value={workDays}
+                        onChange={e => setWorkDays(e.target.value)}
+                        style={{ background: "none", border: "none", outline: "none", fontSize: 13, color: "var(--text-primary)", width: "100%", minWidth: 0 }}
+                      />
+                      <span style={{ fontSize: 11, color: "var(--text-faint)", marginLeft: 4, flexShrink: 0 }}>dagar</span>
+                    </div>
+                    <div style={{ fontSize: 10, color: "var(--text-faint)", marginTop: 5, lineHeight: 1.4, opacity: 0.7 }}>
+                      Lämna tom → AI uppskattar
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ height: "0.5px", background: "var(--border)", marginBottom: 12 }} />
+
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 12 }}>
                   {RIVNING_PLATS_FIELDS.map(f => renderField(
                     f,
@@ -1628,7 +1688,9 @@ function EstimateInner() {
           )}
         </div>
 
-        {/* Arbetsplats & logistik */}
+        {/* Arbetsplats & logistik — döljs för rivning (där fälten är inbakade i Plats & access) */}
+        {jobType !== "rivning" && (
+        <>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
           <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "1.2px", color: "var(--text-faint)", textTransform: "uppercase" }}>Arbetsplats & logistik</div>
           <div style={{ flex: 1, height: "0.5px", background: "var(--border)" }} />
@@ -1710,6 +1772,8 @@ function EstimateInner() {
             </div>
           </div>
         </div>
+        </>
+        )}
 
         {/* Kalkylparametrar */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
