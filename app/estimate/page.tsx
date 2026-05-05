@@ -1026,6 +1026,34 @@ function EstimateInner() {
   async function handleConfirmDraft(name: string) {
     if (!result) return;
     setSavingDraft(true);
+
+  // ── Logga alla redigeringar till feedback_events ──────────────────
+  if (Object.keys(allEdits).length > 0) {
+    const { createClient } = await import("@supabase/supabase-js");
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+
+    const feedbackRows = Object.entries(allEdits).map(([key, edit]) => ({
+      quote_number:    result.job_title || "okänt",
+      field_changed:   `${edit.category} / ${edit.row.description} / ${edit.field}`,
+      ai_value:        String(edit.originalValue),
+      final_value:     String(edit.newValue),
+      reason_code:     edit.reason || "manual_edit",
+      reason_text:     edit.reasonText || "",
+      job_type:        jobType,
+      region:          fieldValues["location"] || address || "",
+      company_id:      null, // sätt detta när ni har auth
+      source_id:       edit.row.source_id || null,  // ← NYCKELN
+      source_table:    edit.row.source_id ? "material_prices_or_work_norms" : null,
+    }));
+
+    await supabase.from("feedback_events").insert(feedbackRows);
+  }
+  // ─────────────────────────────────────────────────────────────────
+
+  saveEstimate({ ... }); // resten är oförändrat
     saveEstimate({ id: localId, created: new Date().toISOString(), description: name, job_type: jobType, total_inc_vat: result.totals?.total_inc_vat || 0, customer_pays: result.totals?.customer_pays || result.totals?.total_inc_vat || 0, data: result });
     const { id: sbId } = await saveDraftToSupabase(name, result.totals?.total_inc_vat || 0, result.totals?.customer_pays || result.totals?.total_inc_vat || 0, result);
     if (sbId) setSupabaseId(localId, sbId);
