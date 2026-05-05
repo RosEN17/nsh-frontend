@@ -12,7 +12,7 @@ import MediaUpload from "@/components/MediaUpload";
 
 // ── Jobbtyper ────────────────────────────────────────────────────────────────
 const JOB_TYPES = [
-  { id: "rivning", label: "Rivning",     icon: <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M2 13h12M3 13V8h3v5M7 13V5h3v8M11 13V9h3v4" strokeLinecap="round" strokeLinejoin="round"/></svg> },
+  { id: "rivning", label: "Rivning",     icon: <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M2 13h12M3 13V8h3v5M7 13V5h3v8M11 13V9h3v4" strokeLinecap="round" strokeLinejoin="round"/></svg>, hidden: true },
   { id: "fasad",   label: "Fasad",       icon: <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3"><rect x="1" y="1" width="14" height="14" rx="1.5"/><path d="M1 6h14M6 6v8M10 6v8" strokeWidth="1"/></svg> },
   { id: "altan",   label: "Altan/Trall", icon: <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3"><rect x="1" y="10" width="14" height="4" rx="1"/><path d="M3 10V7M7 10V5M11 10V7M13 10V6" strokeLinecap="round"/></svg> },
   { id: "ovrigt",  label: "Övrigt",      icon: <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M8 5v6M5 8h6" strokeLinecap="round"/></svg> },
@@ -1101,10 +1101,10 @@ function EstimateInner() {
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="card-title" style={{ marginBottom: 10 }}>Jobbtyp</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 7 }}>
-            {JOB_TYPES.map(jt => (
+            {JOB_TYPES.filter(jt => !jt.hidden).map(jt => (
               <button
-                key={jt.id}
-                onClick={() => setJobType(jt.id)}
+               key={jt.id}
+               onClick={() => setJobType(jt.id)}
                 style={{
                   background: jobType === jt.id ? "rgba(106,129,147,0.12)" : "var(--bg-surface)",
                   border: `0.5px solid ${jobType === jt.id ? "rgba(106,129,147,0.5)" : "var(--border)"}`,
