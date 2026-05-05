@@ -423,14 +423,16 @@ function generateQuoteHTML(result: any, settings: any) {
   <h2>Specifikation</h2>
   <table style="margin-bottom:20px">
     <thead>
-      <tr style="background:#1a1a1a;color:white">
-        <th style="padding:9px 12px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;width:40%">Post</th>
-        <th style="padding:9px 12px;text-align:center;font-size:10px;text-transform:uppercase">Enhet</th>
-        <th style="padding:9px 12px;text-align:right;font-size:10px;text-transform:uppercase">Antal</th>
-        <th style="padding:9px 12px;text-align:right;font-size:10px;text-transform:uppercase">À-pris</th>
-        <th style="padding:9px 12px;text-align:right;font-size:10px;text-transform:uppercase">Summa</th>
-      </tr>
-    </thead>
+        <tr>
+          <th style={{ width: showSources ? "32%" : "38%" }}>Post</th>
+          <th>Enhet</th>
+          <th className="right">Antal</th>
+          <th className="right">À-pris</th>
+          <th className="right">Summa</th>
+          {showSources && <th style={{ width: "18%" }}>Källa</th>}
+          <th style={{ width: 80 }} />
+        </tr>
+      </thead>
     <tbody>${rowsHTML}</tbody>
   </table>
 
@@ -1895,66 +1897,107 @@ function EstimateInner() {
                   <td colSpan={showSources ? 6 : 5}>{cat.name}</td>
                 </tr>
                 {(cat.rows || []).map((row: any, ri: number) => {
-                  const editKey = `${cat.name}__${row.description}`;
-                  const isEdited = !!allEdits[editKey];
-                  return (
-                    <tr key={`row-${ci}-${ri}`} style={{ background: isEdited ? "rgba(106,129,147,0.06)" : undefined }}>
-                      <td>
-                        <div style={{ color: "var(--text-primary)", fontWeight: 500, display: "flex", alignItems: "center", gap: 6 }}>
-                          {row.description}
-                          {isEdited && (
-                            <span style={{ fontSize: 10, fontWeight: 600, color: "#6a8193", background: "rgba(106,129,147,0.15)", borderRadius: 10, padding: "1px 6px", flexShrink: 0 }}>
-                              justerad
-                            </span>
-                          )}
-                        </div>
-                        {row.note && <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 2 }}>{row.note}</div>}
-                      </td>
-                      <td style={{ color: "var(--text-faint)" }}>{row.unit}</td>
+              const editKey = `${cat.name}__${row.description}`;
+              const isEdited = !!allEdits[editKey];
+              const editedField = allEdits[editKey]?.field;
+              return (
+                <tr
+                  key={`row-${ci}-${ri}`}
+                  className="est-table-row"
+                  style={{ background: isEdited ? "rgba(106,129,147,0.05)" : undefined }}
+                  onMouseEnter={e => {
+                    const btn = e.currentTarget.querySelector<HTMLButtonElement>(".row-edit-btn");
+                    if (btn) btn.style.opacity = "1";
+                  }}
+                  onMouseLeave={e => {
+                    const btn = e.currentTarget.querySelector<HTMLButtonElement>(".row-edit-btn");
+                    if (btn && !isEdited) btn.style.opacity = "0";
+                  }}
+                >
+                  {/* Beskrivning */}
+                  <td>
+                    <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                      <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>
+                        {row.description}
+                      </span>
+                      {isEdited && (
+                        <span style={{
+                          fontSize: 10, fontWeight: 600, color: "#6a8193",
+                          background: "rgba(106,129,147,0.15)", borderRadius: 10,
+                          padding: "1px 6px", flexShrink: 0,
+                        }}>
+                          justerad
+                        </span>
+                      )}
+                    </div>
+                    {row.note && (
+                      <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 2 }}>
+                        {row.note}
+                      </div>
+                    )}
+                  </td>
 
-                      {/* ANTAL — klickbar cell */}
-                      <td className="right">
-                        <button
-                          onClick={() => setEditingRow({ row: row as QuoteRow, cat: cat.name, catIdx: ci, rowIdx: ri })}
-                          style={{
-                            background: "none", border: "none", cursor: "pointer",
-                            fontFamily: "var(--mono)", fontSize: 13,
-                            color: isEdited && allEdits[editKey]?.field === "quantity" ? "#6a8193" : "var(--text-primary)",
-                            fontWeight: isEdited && allEdits[editKey]?.field === "quantity" ? 700 : 400,
-                            padding: "2px 4px", borderRadius: 4,
-                            textDecoration: "underline dotted",
-                            textUnderlineOffset: 3,
-                          }}
-                          title="Justera antal"
-                        >
-                          {row.quantity}
-                        </button>
-                      </td>
+                  {/* Enhet */}
+                  <td style={{ color: "var(--text-faint)" }}>{row.unit}</td>
 
-                      {/* À-PRIS — klickbar cell */}
-                      <td className="right">
-                        <button
-                          onClick={() => setEditingRow({ row: row as QuoteRow, cat: cat.name, catIdx: ci, rowIdx: ri })}
-                          style={{
-                            background: "none", border: "none", cursor: "pointer",
-                            fontFamily: "var(--mono)", fontSize: 13,
-                            color: isEdited && allEdits[editKey]?.field === "unit_price" ? "#6a8193" : "var(--text-primary)",
-                            fontWeight: isEdited && allEdits[editKey]?.field === "unit_price" ? 700 : 400,
-                            padding: "2px 4px", borderRadius: 4,
-                            textDecoration: "underline dotted",
-                            textUnderlineOffset: 3,
-                          }}
-                          title="Justera à-pris"
-                        >
-                          {fmtKr(row.unit_price)}
-                        </button>
-                      </td>
+                  {/* Antal */}
+                  <td className="right" style={{
+                    fontFamily: "var(--mono)", fontSize: 13,
+                    color: editedField === "quantity" ? "#6a8193" : "var(--text-primary)",
+                    fontWeight: editedField === "quantity" ? 700 : 400,
+                  }}>
+                    {row.quantity}
+                  </td>
 
-                      <td className="right" style={{ fontFamily: "var(--mono)", fontWeight: 600 }}>{fmtKr(row.total)}</td>
-                      {showSources && <td style={{ fontSize: 11, color: "var(--text-faint)", fontStyle: "italic" }}>{getSourceLabel(row)}</td>}
-                    </tr>
-                  );
-                })}
+                  {/* À-pris */}
+                  <td className="right" style={{
+                    fontFamily: "var(--mono)", fontSize: 13,
+                    color: editedField === "unit_price" ? "#6a8193" : "var(--text-primary)",
+                    fontWeight: editedField === "unit_price" ? 700 : 400,
+                  }}>
+                    {fmtKr(row.unit_price)}
+                  </td>
+
+                  {/* Summa */}
+                  <td className="right" style={{ fontFamily: "var(--mono)", fontWeight: 600 }}>
+                    {fmtKr(row.total)}
+                  </td>
+
+                  {/* Källa */}
+                  {showSources && (
+                    <td style={{ fontSize: 11, color: "var(--text-faint)", fontStyle: "italic" }}>
+                      {getSourceLabel(row)}
+                    </td>
+                  )}
+
+                  {/* Justera-knapp — alltid i DOM, synlig vid hover eller om justerad */}
+                  <td style={{ width: 80, paddingRight: 8, textAlign: "right" }}>
+                    <button
+                      className="row-edit-btn"
+                      onClick={() => setEditingRow({
+                        row: row as QuoteRow,
+                        cat: cat.name,
+                        catIdx: ci,
+                        rowIdx: ri,
+                      })}
+                      style={{
+                        opacity: isEdited ? 1 : 0,
+                        transition: "opacity .15s",
+                        padding: "3px 10px",
+                        borderRadius: "var(--radius)",
+                        fontSize: 11, fontWeight: 600, cursor: "pointer",
+                        border: "0.5px solid",
+                        borderColor: isEdited ? "var(--accent-border)" : "var(--border-strong)",
+                        background:  isEdited ? "var(--accent-soft)"   : "transparent",
+                        color:       isEdited ? "var(--accent-text)"   : "var(--text-muted)",
+                      }}
+                    >
+                      {isEdited ? "Redigera" : "Justera"}
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
                 <tr className="est-subtotal">
                   <td colSpan={showSources ? 5 : 4} style={{ textAlign: "right" }}>Delsumma {cat.name}</td>
                   <td className="right" style={{ fontFamily: "var(--mono)" }}>{fmtKr(cat.subtotal)}</td>
@@ -1967,29 +2010,28 @@ function EstimateInner() {
 
       {/* ── RADJUSTERINGS-MODAL ── */}
       {editingRow && (
-        <RowFeedbackModal
-          quoteNumber={result.job_title || "okänt"}
-          row={editingRow.row}
-          category={editingRow.cat}
-          jobType={jobType}
-          region={fieldValues["location"] || ""}
-          allEdits={allEdits}
-          onSave={(updatedRow, updatedEdits) => {
-            // Uppdatera raden i localCategories
-            setLocalCategories(prev => {
-              const next = JSON.parse(JSON.stringify(prev));
-              next[editingRow.catIdx].rows[editingRow.rowIdx] = updatedRow;
-              // Räkna om delsumma
-              next[editingRow.catIdx].subtotal = next[editingRow.catIdx].rows
-                .reduce((s: number, r: any) => s + (r.total || 0), 0);
-              return next;
-            });
-            setAllEdits(updatedEdits);
-            setEditingRow(null);
-          }}
-          onClose={() => setEditingRow(null)}
-        />
-      )}
+    <RowFeedbackModal
+      quoteNumber={result.job_title || "okänt"}
+      row={editingRow.row}
+      category={editingRow.cat}
+      jobType={jobType}
+      region={fieldValues["location"] || address || ""}
+      craftsmanName={getSettings()?.contact_name || ""}
+      allEdits={allEdits}
+      onSave={(updatedRow, updatedEdits) => {
+        setLocalCategories(prev => {
+          const next = JSON.parse(JSON.stringify(prev));
+          next[editingRow.catIdx].rows[editingRow.rowIdx] = updatedRow;
+          next[editingRow.catIdx].subtotal = next[editingRow.catIdx].rows
+            .reduce((s: number, r: any) => s + (r.total || 0), 0);
+          return next;
+        });
+        setAllEdits(updatedEdits);
+        setEditingRow(null);
+      }}
+      onClose={() => setEditingRow(null)}
+    />
+  )}
 
       <div className="est-total-section">
         <div className="est-total-row"><span className="label-text">Material</span><span className="value">{fmtKr(t.material_total || 0)}</span></div>
