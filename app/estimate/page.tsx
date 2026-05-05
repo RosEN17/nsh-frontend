@@ -425,15 +425,15 @@ function generateQuoteHTML(result: any, settings: any) {
   <table style="margin-bottom:20px">
     <thead>
         <tr>
-          <th style={{ width: showSources ? "32%" : "38%" }}>Post</th>
-          <th>Enhet</th>
-          <th className="right">Antal</th>
-          <th className="right">À-pris</th>
-          <th className="right">Summa</th>
-          {showSources && <th style={{ width: "18%" }}>Källa</th>}
-          <th style={{ width: 80 }} />
-        </tr>
-      </thead>
+          <thead>
+      <tr>
+        <th style="width:38%">Post</th>
+        <th>Enhet</th>
+        <th style="text-align:right">Antal</th>
+        <th style="text-align:right">À-pris</th>
+        <th style="text-align:right">Summa</th>
+      </tr>
+    </thead>
     <tbody>${rowsHTML}</tbody>
   </table>
 
@@ -1042,8 +1042,8 @@ async function handleConfirmDraft(name: string) {
       reason_text:   edit.reason_text || "",
       job_type:      jobType,
       region:        fieldValues["location"] || address || "",
-      source_id:     edit.source_id || null,
-      source_table:  edit.source_table || null,
+      source_id:     edit.source_id ?? undefined,
+      source_table:  edit.source_table ?? undefined,
     }));
 
     await supabase.from("feedback_events").insert(feedbackRows);
