@@ -153,8 +153,8 @@ export default function RowFeedbackModal({
   craftsman_name: craftsmanName,
   job_type:       jobType,
   region:         region,
-  source_id:      rowEdit.source_id || null,      // ← ny rad
-  source_table:   rowEdit.source_table || null,   // ← ny rad
+  source_id:      rowEdit.source_id ?? undefined,      // ← null → undefined
+  source_table:   rowEdit.source_table ?? undefined,   // ← null → undefined
   all_edits:      updatedEdits as any,
 });
 
