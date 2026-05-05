@@ -1053,15 +1053,27 @@ function EstimateInner() {
   }
   // ─────────────────────────────────────────────────────────────────
 
-  saveEstimate({ ... }); // resten är oförändrat
-    saveEstimate({ id: localId, created: new Date().toISOString(), description: name, job_type: jobType, total_inc_vat: result.totals?.total_inc_vat || 0, customer_pays: result.totals?.customer_pays || result.totals?.total_inc_vat || 0, data: result });
-    const { id: sbId } = await saveDraftToSupabase(name, result.totals?.total_inc_vat || 0, result.totals?.customer_pays || result.totals?.total_inc_vat || 0, result);
-    if (sbId) setSupabaseId(localId, sbId);
-    setSavingDraft(false);
-    setShowDraftModal(false);
-    setSaved(true);
-  }
-
+  saveEstimate({
+    id: localId,
+    created: new Date().toISOString(),
+    description: name,
+    job_type: jobType,
+    total_inc_vat: result.totals?.total_inc_vat || 0,
+    customer_pays: result.totals?.customer_pays || result.totals?.total_inc_vat || 0,
+    data: result,
+  });
+  const { id: sbId } = await saveDraftToSupabase(
+    name,
+    result.totals?.total_inc_vat || 0,
+    result.totals?.customer_pays || result.totals?.total_inc_vat || 0,
+    result
+  );
+  if (sbId) setSupabaseId(localId, sbId);
+  setSavingDraft(false);
+  setShowDraftModal(false);
+  setSaved(true);
+}
+ 
   function handleDownloadQuote() {
     if (!result) return;
     const settings = getSettings();
