@@ -36,6 +36,8 @@ export interface RowEdit {
   reason_text: string;
   category: string;
   row_type: string;
+  source_id?: string;   // ← lägg till denna
+  source_table?: string; // ← och denna
 }
 
 export interface QuoteRow {
@@ -46,6 +48,7 @@ export interface QuoteRow {
   unit_price: number;
   total: number;
   type: string;
+  source_id?: string;  // ← lägg till denna
 }
 
 interface Props {
@@ -123,31 +126,37 @@ export default function RowFeedbackModal({
     const rowEdit: RowEdit = {
       description: row.description,
       field:       qtyChanged && priceChanged ? "total"
-                 : qtyChanged                 ? "quantity"
-                 :                              "unit_price",
-      ai_value:    qtyChanged ? row.quantity : row.unit_price,
-      final_value: qtyChanged ? newQty       : newPrice,
-      reason_code: reasonCode,
-      reason_text: reasonText.trim(),
-      category,
-      row_type: row.type,
-    };
+             : qtyChanged                 ? "quantity"
+             :                              "unit_price",
+     ai_value:    qtyChanged ? row.quantity : row.unit_price,
+     final_value: qtyChanged ? newQty       : newPrice,
+     reason_code: reasonCode,
+     reason_text: reasonText.trim(),
+     category,
+     row_type:    row.type,
+     source_id:   row.source_id || undefined,    // ← ny rad
+     source_table: row.source_id                 // ← ny rad
+    ? (row.type === "labor" ? "work_norms" : "material_prices")
+    : undefined,
+};
 
     const updatedEdits = { ...allEdits, [editKey]: rowEdit };
 
     try {
-      await saveFeedback({
-        quote_number:   quoteNumber,
-        field_changed:  `${category} / ${row.description} / ${rowEdit.field}`,
-        ai_value:       String(rowEdit.ai_value),
-        final_value:    String(rowEdit.final_value),
-        reason_code:    reasonCode,
-        reason_text:    reasonText.trim(),
-        craftsman_name: craftsmanName,
-        job_type:       jobType,
-        region:         region,
-        all_edits:      updatedEdits as any,
-      });
+     await saveFeedback({
+  quote_number:   quoteNumber,
+  field_changed:  `${category} / ${row.description} / ${rowEdit.field}`,
+  ai_value:       String(rowEdit.ai_value),
+  final_value:    String(rowEdit.final_value),
+  reason_code:    reasonCode,
+  reason_text:    reasonText.trim(),
+  craftsman_name: craftsmanName,
+  job_type:       jobType,
+  region:         region,
+  source_id:      rowEdit.source_id || null,      // ← ny rad
+  source_table:   rowEdit.source_table || null,   // ← ny rad
+  all_edits:      updatedEdits as any,
+});
 
       onSave(
         { ...row, quantity: newQty, unit_price: newPrice, total: newTotal },
