@@ -1022,12 +1022,10 @@ function EstimateInner() {
       setStep("input");
     }
   }
+async function handleConfirmDraft(name: string) {
+  if (!result) return;
+  setSavingDraft(true);
 
-  async function handleConfirmDraft(name: string) {
-    if (!result) return;
-    setSavingDraft(true);
-
-  // ── Logga alla redigeringar till feedback_events ──────────────────
   if (Object.keys(allEdits).length > 0) {
     const { createClient } = await import("@supabase/supabase-js");
     const supabase = createClient(
@@ -1035,23 +1033,21 @@ function EstimateInner() {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
 
-    const feedbackRows = Object.entries(allEdits).map(([key, edit]) => ({
-      quote_number:    result.job_title || "okänt",
-      field_changed:   `${edit.category} / ${edit.row.description} / ${edit.field}`,
-      ai_value:        String(edit.originalValue),
-      final_value:     String(edit.newValue),
-      reason_code:     edit.reason || "manual_edit",
-      reason_text:     edit.reasonText || "",
-      job_type:        jobType,
-      region:          fieldValues["location"] || address || "",
-      company_id:      null, // sätt detta när ni har auth
-      source_id:       edit.row.source_id || null,  // ← NYCKELN
-      source_table:    edit.row.source_id ? "material_prices_or_work_norms" : null,
+    const feedbackRows = Object.entries(allEdits).map(([_key, edit]) => ({
+      quote_number:  result.job_title || "okänt",
+      field_changed: `${edit.category} / ${edit.description} / ${edit.field}`,
+      ai_value:      String(edit.ai_value),
+      final_value:   String(edit.final_value),
+      reason_code:   edit.reason_code || "manual_edit",
+      reason_text:   edit.reason_text || "",
+      job_type:      jobType,
+      region:        fieldValues["location"] || address || "",
+      source_id:     edit.source_id || null,
+      source_table:  edit.source_table || null,
     }));
 
     await supabase.from("feedback_events").insert(feedbackRows);
   }
-  // ─────────────────────────────────────────────────────────────────
 
   saveEstimate({
     id: localId,
@@ -1073,7 +1069,6 @@ function EstimateInner() {
   setShowDraftModal(false);
   setSaved(true);
 }
- 
   function handleDownloadQuote() {
     if (!result) return;
     const settings = getSettings();
