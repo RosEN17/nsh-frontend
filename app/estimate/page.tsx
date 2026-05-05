@@ -1600,12 +1600,13 @@ function EstimateInner() {
           {error && <div className="login-error" style={{ marginTop: 10 }}>{error}</div>}
 
            {/* Filuppladdning — foton och ritningar */}
-           <MediaUpload
-             onImagesChange={files => setImageFiles(files as any)}
-             onDrawingsChange={files => setDrawingFiles(files as any)}
-             jobType={jobType}
-             disabled={false}
-           />
+          <MediaUpload
+            onImagesChange={files => setImageFiles(files as any)}
+            onDrawingsChange={files => setDrawingFiles(files as any)}
+            jobType={jobType}
+            disabled={false}
+          />
+        </div>  {/* ← denna saknades */}
 
         {/* Arbetsplats & logistik — döljs för rivning (där fälten är inbakade i Plats & access) */}
         {jobType !== "rivning" && (
