@@ -8,6 +8,7 @@ import { createEstimate } from "@/lib/api";
 import { saveEstimate, getEstimates, setSupabaseId } from "@/lib/store";
 import { saveQuoteToSupabase, saveDraftToSupabase } from "@/lib/quotes";
 import RowFeedbackModal, { type RowEdit, type QuoteRow } from "@/components/RowFeedbackModal";
+import MediaUpload from "@/components/MediaUpload";
 
 // ── Jobbtyper ────────────────────────────────────────────────────────────────
 const JOB_TYPES = [
@@ -1233,27 +1234,7 @@ function EstimateInner() {
                 <div style={{ fontSize: 10, fontWeight: 600, color: "var(--text-faint)", letterSpacing: "1px", textTransform: "uppercase" }}>
                   Ingår i jobbet
                 </div>
-                {/* Ritningar upload */}
-                <label style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", background: "var(--bg-surface)", border: "0.5px solid var(--border)", borderRadius: "var(--radius)", padding: "4px 10px", fontSize: 11, color: "var(--text-muted)", transition: "border-color 0.12s" }}
-                  onMouseEnter={e => (e.currentTarget.style.borderColor = "rgba(106,129,147,0.5)")}
-                  onMouseLeave={e => (e.currentTarget.style.borderColor = "var(--border)")}>
-                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-                    <path d="M2 14V10M14 14V10M8 2v8M5 5l3-3 3 3" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M2 14h12" strokeLinecap="round"/>
-                  </svg>
-                  <span>Ladda upp ritningar</span>
-                  {drawingFiles.length > 0 && (
-                    <span style={{ background: "rgba(106,129,147,0.2)", color: "#6a8193", borderRadius: 10, padding: "1px 6px", fontSize: 10, fontWeight: 600, marginLeft: 2 }}>
-                      {drawingFiles.length}
-                    </span>
-                  )}
-                  <input type="file" accept=".pdf,.png,.jpg,.jpeg,.dwg,.dxf" multiple style={{ display: "none" }}
-                    onChange={e => {
-                      const files = Array.from(e.target.files || []);
-                      setDrawingFiles(prev => [...prev, ...files]);
-                      e.target.value = "";
-                    }} />
-                </label>
+                
               </div>
               {drawingFiles.length > 0 && (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 8 }}>
@@ -1618,77 +1599,13 @@ function EstimateInner() {
           />
           {error && <div className="login-error" style={{ marginTop: 10 }}>{error}</div>}
 
-          {/* Filuppladdning — underlag och bilder */}
-          <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-            {/* PDF med underlag */}
-            <label style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, cursor: "pointer", background: "var(--bg-surface)", border: `0.5px solid ${pdfFiles.length > 0 ? "rgba(106,129,147,0.5)" : "var(--border)"}`, borderRadius: "var(--radius)", padding: "8px 12px", fontSize: 12, color: pdfFiles.length > 0 ? "#8aaabb" : "var(--text-muted)", transition: "all 0.12s" }}
-              onMouseEnter={e => (e.currentTarget.style.borderColor = "rgba(106,129,147,0.5)")}
-              onMouseLeave={e => (e.currentTarget.style.borderColor = pdfFiles.length > 0 ? "rgba(106,129,147,0.5)" : "var(--border)")}>
-              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-                <rect x="2" y="1" width="9" height="13" rx="1.5"/>
-                <path d="M8 1v4h4" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M5 8h6M5 10.5h4" strokeLinecap="round"/>
-              </svg>
-              <span style={{ fontWeight: 500 }}>PDF med underlag</span>
-              {pdfFiles.length > 0 && (
-                <span style={{ background: "rgba(106,129,147,0.2)", color: "#6a8193", borderRadius: 10, padding: "1px 7px", fontSize: 11, fontWeight: 600 }}>
-                  {pdfFiles.length} fil{pdfFiles.length > 1 ? "er" : ""}
-                </span>
-              )}
-              <input type="file" accept=".pdf" multiple style={{ display: "none" }}
-                onChange={e => {
-                  const files = Array.from(e.target.files || []);
-                  setPdfFiles(prev => [...prev, ...files]);
-                  e.target.value = "";
-                }} />
-            </label>
-
-            {/* Projektbilder */}
-            <label style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, cursor: "pointer", background: "var(--bg-surface)", border: `0.5px solid ${imageFiles.length > 0 ? "rgba(106,129,147,0.5)" : "var(--border)"}`, borderRadius: "var(--radius)", padding: "8px 12px", fontSize: 12, color: imageFiles.length > 0 ? "#8aaabb" : "var(--text-muted)", transition: "all 0.12s" }}
-              onMouseEnter={e => (e.currentTarget.style.borderColor = "rgba(106,129,147,0.5)")}
-              onMouseLeave={e => (e.currentTarget.style.borderColor = imageFiles.length > 0 ? "rgba(106,129,147,0.5)" : "var(--border)")}>
-              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-                <rect x="1" y="3" width="14" height="10" rx="1.5"/>
-                <circle cx="5.5" cy="7" r="1.5"/>
-                <path d="M1 11l4-3 3 3 2-2 5 4" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              <span style={{ fontWeight: 500 }}>Projektbilder</span>
-              {imageFiles.length > 0 && (
-                <span style={{ background: "rgba(106,129,147,0.2)", color: "#6a8193", borderRadius: 10, padding: "1px 7px", fontSize: 11, fontWeight: 600 }}>
-                  {imageFiles.length} bild{imageFiles.length > 1 ? "er" : ""}
-                </span>
-              )}
-              <input type="file" accept=".png,.jpg,.jpeg,.webp" multiple style={{ display: "none" }}
-                onChange={e => {
-                  const files = Array.from(e.target.files || []);
-                  setImageFiles(prev => [...prev, ...files]);
-                  e.target.value = "";
-                }} />
-            </label>
-          </div>
-
-          {/* Visa uppladdade filer */}
-          {(pdfFiles.length > 0 || imageFiles.length > 0) && (
-            <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 5 }}>
-              {pdfFiles.map((f, i) => (
-                <div key={`pdf-${i}`} style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(239,68,68,0.06)", border: "0.5px solid rgba(239,68,68,0.2)", borderRadius: "var(--radius)", padding: "3px 8px", fontSize: 11, color: "var(--text-muted)" }}>
-                  <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="#ef4444" strokeWidth="1.4"><rect x="2" y="1" width="10" height="13" rx="1.5"/><path d="M5 6h6M5 9h6M5 12h4" strokeLinecap="round"/></svg>
-                  <span style={{ maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</span>
-                  <button onClick={() => setPdfFiles(prev => prev.filter((_, j) => j !== i))}
-                    style={{ background: "none", border: "none", color: "var(--text-faint)", cursor: "pointer", padding: 0, lineHeight: 1, fontSize: 14 }}>×</button>
-                </div>
-              ))}
-              {imageFiles.map((f, i) => (
-                <div key={`img-${i}`} style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(106,129,147,0.06)", border: "0.5px solid rgba(106,129,147,0.2)", borderRadius: "var(--radius)", padding: "3px 8px", fontSize: 11, color: "var(--text-muted)" }}>
-                  <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="#6a8193" strokeWidth="1.4"><rect x="1" y="2" width="14" height="12" rx="1.5"/><circle cx="5" cy="7" r="1.5"/><path d="M1 11l4-3 3 3 2-2 6 4" strokeLinecap="round"/></svg>
-                  <span style={{ maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</span>
-                  <button onClick={() => setImageFiles(prev => prev.filter((_, j) => j !== i))}
-                    style={{ background: "none", border: "none", color: "var(--text-faint)", cursor: "pointer", padding: 0, lineHeight: 1, fontSize: 14 }}>×</button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+           {/* Filuppladdning — foton och ritningar */}
+           <MediaUpload
+             onImagesChange={files => setImageFiles(files as any)}
+             onDrawingsChange={files => setDrawingFiles(files as any)}
+             jobType={jobType}
+             disabled={false}
+           />
 
         {/* Arbetsplats & logistik — döljs för rivning (där fälten är inbakade i Plats & access) */}
         {jobType !== "rivning" && (
