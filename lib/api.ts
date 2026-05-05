@@ -20,6 +20,12 @@ async function getAuthHeader(): Promise<Record<string, string>> {
   return {};
 }
 
+/** Bildformat som skickas till /api/estimate */
+export interface ImageData {
+  name: string;
+  data: string; // base64 data-URL
+}
+
 export interface EstimateRequest {
   description: string;
   job_type?: string;
@@ -34,8 +40,16 @@ export interface EstimateRequest {
   margin_pct?: number;
   ue_markup_pct?: number;
   build_params?: Record<string, string>;
-  images?: Array<{ name: string; data: string }>;
-  documents?: Array<{ name: string; data: string }>;
+  /**
+   * Projektbilder – skickas med detail="low" till GPT-4o.
+   * Namnge INTE med [RITNING]-prefix här.
+   */
+  images?: ImageData[];
+  /**
+   * Ritningar/skisser – skickas med detail="high".
+   * Backend känner igen [RITNING]-prefix i filnamnet och ökar detaljnivå.
+   */
+  documents?: ImageData[];
 }
 
 export async function createEstimate(body: EstimateRequest) {
@@ -75,9 +89,9 @@ export async function getPricing(jobType: string, quality: string = "standard", 
   return res.json();
 }
 
-// ----------------------------------------------------------------
+// ────────────────────────────────────────────────────────────────────
 // Feedback
-// ----------------------------------------------------------------
+// ────────────────────────────────────────────────────────────────────
 
 interface EditValue {
   ai: string | number;
